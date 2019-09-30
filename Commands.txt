@@ -1,0 +1,10 @@
+Github commands
+
+git clone
+git status
+git add filename
+OR
+git add -A (add all)
+git commit -m "Type message here"
+git push
+esc :wq
