@@ -69,7 +69,7 @@ def model():
     #   on the glass substrate.
     
     # Glass model (model to which we have access) linearized around Tss = 38 ˚C; Iss = 14 a.u.; Qss = 3 slm; Pss = 3 W
-    modelMatG = sio.loadmat('/users/adbonzanini/box sync/berkeley/research/Explicit MPC Paper/Supporting-Data-Files/MIMOmodelGlass')
+    modelMatG = sio.loadmat('/users/adbonzanini/box sync/berkeley/research/Explicit MPC Paper/DNN-MPC-Plasma/Supporting-Data-Files/MIMOmodelGlass')
     A = modelMatG['A']
     B = modelMatG['B']
     C = modelMatG['C']

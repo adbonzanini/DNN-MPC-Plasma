@@ -72,9 +72,9 @@ Train the GP model
 ######################################################################################
 
 # Import training data
-df_train=pd.read_csv('/Users/adbonzanini/Box Sync/Berkeley/Research/Gaussian Process/MIMO GP State Feedback Substrates/Supporting Data Files/TrainingDataSimulation.csv') 
+df_train=pd.read_csv('/Users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC Paper/DNN-MPC-Plasma/Supporting-Data-Files/TrainingDataSimulation.csv') 
 # Import test data
-df_test=pd.read_csv('/Users/adbonzanini/Box Sync/Berkeley/Research/Gaussian Process/MIMO GP State Feedback Substrates/Supporting Data Files/TestDataSimulation.csv')
+df_test=pd.read_csv('/Users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC Paper/DNN-MPC-Plasma/Supporting-Data-Files/TestDataSimulation.csv')
 
 
 # Initial values of the GP correction
