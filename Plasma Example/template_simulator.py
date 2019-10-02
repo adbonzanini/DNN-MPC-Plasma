@@ -45,7 +45,7 @@ def simulator(model):
     # Choose options for the integrator
     opts = {"abstol":1e-10,"reltol":1e-10, 'tf':t_step_simulator}
     # Choose integrator: for example 'cvodes' for ODEs or 'idas' for DAEs
-    integration_tool = 'cvodes'
+    integration_tool = 'idas'
 
     # Choose the real value of the uncertain parameters that will be used
     # to perform the simulation of the system. They can be constant or time-varying
@@ -54,10 +54,10 @@ def simulator(model):
     def p_real_now(current_time):
         if current_time >= 0:
             # p_real =  NP.array([0., 0.]) - (mtimes(A, _x)+mtimes(B, _u)) + mtimes(Areal, _x)+mtimes(Breal, _u)
-            p_real =  NP.array([0., 0.])
+            p_real =  NP.array([10., 10.])
         else:
             # p_real =  NP.array([0., 0.]) - (mtimes(A, _x)+mtimes(B, _u)) + mtimes(Areal, _x)+mtimes(Breal, _u)
-            p_real =  NP.array([0., 0.])
+            p_real =  NP.array([10., 10.])
         return p_real
     # Choose the real value of the time-varing parameters
     def tv_p_real_now(current_time):

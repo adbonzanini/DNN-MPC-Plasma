@@ -66,7 +66,7 @@ import data_do_mpc
 Train the GP model
 -----------------------------------------------
 """
-
+# 
 ######################################################################################
 # IMPORT DATA AND DEFINE PARAMETERS
 ######################################################################################
@@ -79,13 +79,17 @@ df_test=pd.read_csv('/Users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC 
 
 # Initial values of the GP correction
 import config
-config.w1=0
-config.w2=0
+config.w1=0.
+config.w2=0.
+w1 = 0.
+w2 = 0.
 
 # Define how mant "history points" we want to be keeping track of
-L = config.L
+L=config.L
 # Initialize counter
+config.j=0
 j=config.j
+
 
 ######################################################################################
 # FORMAT INTO TRAINING AND TEST DATA
@@ -156,11 +160,12 @@ plt.plot(Ipred+3*sigmaI, 'k--')
 plt.plot(Ipred-3*sigmaI, 'k--')
 plt.ylabel('$\Delta I$')
 plt.legend(['Predicted', 'Test', '99% CI'])
+plt.show()
 '''
 
 print 'GP Trained!'
 sio.savemat('/users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC Paper/DNN-MPC-Plasma/Supporting-Data-Files/hyperparameters.mat', {'hyp_sT':hyp_sT, 'hyp_lT': hyp_lT, 'hyp_sI':hyp_sI, 'hyp_lI': hyp_lI, 'alphaNoise1':alphaNoise1, 'alphaNoise2':alphaNoise2})
-plt.show()
+
 
 
 ###########################################################################################################
@@ -194,7 +199,7 @@ Xtest = np.matrix(Xtest)
 # CASADI FUNCTIONS FOR GP PREDICTIONS
 ###########################################################################################################
 # Glass model (model to which we have access) linearized around Tss = 38 ˚C; Iss = 14 a.u.; Qss = 3 slm; Pss = 3 W
-modelMatG = sio.loadmat('/users/adbonzanini/box sync/berkeley/research/gaussian process/MIMO GP State Feedback Substrates/Supporting Data Files/MIMOmodelGlass')
+modelMatG = sio.loadmat('/users/adbonzanini/box sync/berkeley/research/Explicit MPC Paper/DNN-MPC-Plasma/Supporting-Data-Files/MIMOmodelGlass')
 A = modelMatG['A']
 B = modelMatG['B']
 C = modelMatG['C']
@@ -229,7 +234,7 @@ import template_observer
 import template_simulator
     
 # Create the objects for each module
-model_1 = template_model.model()
+model_1 = template_model.model(w1,w2)
 # Create an optimizer object based on the template and a model
 optimizer_1 = template_optimizer.optimizer(model_1)
 # Create an observer object based on the template and a model
@@ -250,7 +255,20 @@ do-mpc: MPC loop
 ----------------------------
 """
 while (configuration_1.simulator.t0_sim + configuration_1.simulator.t_step_simulator < configuration_1.optimizer.t_end):
-
+    '''
+    # Create the objects for each module
+    model_1 = template_model.model(w1,w2)
+    # Create an optimizer object based on the template and a model
+    optimizer_1 = template_optimizer.optimizer(model_1)
+    # Create an observer object based on the template and a model
+    observer_1 = template_observer.observer(model_1)
+    # Create a simulator object based on the template and a model
+    simulator_1 = template_simulator.simulator(model_1)
+    # Create a configuration
+    configuration_1 = core_do_mpc.configuration(model_1, optimizer_1, observer_1, simulator_1)
+    # Set up the solvers
+    configuration_1.setup_solver()
+    '''
     """
     ----------------------------
     do-mpc: Optimizer
@@ -313,36 +331,28 @@ while (configuration_1.simulator.t0_sim + configuration_1.simulator.t_step_simul
     print('History of Differences = ', xHistory)
     print('--------------------------------------------------\n')
     
-    import config
+    # import config
     # GP Predictions
     # config.w1 = 0*vertcat(Fpred(xx))
     # config.w2 = 0*vertcat(FpredI(xx))  
-    config.w1 = 0.0
-    config.w2 = 0.0
+    # global w1, w2
+    # config.w1 = 0.
+    # config.w2 = 0.
+    w1 = 0.
+    w2 = 0.
     
-    
-    # Create the objects for each module
-    model_1 = template_model.model()
-    # Create an optimizer object based on the template and a model
-    optimizer_1 = template_optimizer.optimizer(model_1)
-    # Create an observer object based on the template and a model
-    observer_1 = template_observer.observer(model_1)
-    # Create a simulator object based on the template and a model
-    simulator_1 = template_simulator.simulator(model_1)
-    # Create a configuration
-    # configuration_1 = core_do_mpc.configuration(model_1, optimizer_1, observer_1, simulator_1)
-    # Set up the solvers
-    # configuration_1.setup_solver()
-    
-    import config
+    # import config
     print('-----------------------')
-    print('w1 = ', config.w1)
+    print('config.w1 = ', config.w1)
+    print('w1 = ', w1)
     print('j = ', config.j)
+    print('xopt =')
+    print(xopt)
     print('-----------------------')
     
-    config.j = config.j+1
+    j = j+1
 
-    if config.j>=5:
+    if j>=5:
         sys.exit()
 
 """

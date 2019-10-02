@@ -52,12 +52,13 @@ from sympy import Symbol
 #    it every time the model runs.
 
 
+
 """
 --------------------------------------------------------------------------------
  DEFINE A FUNCTION FOR THE PLASMA MODEL
 --------------------------------------------------------------------------------
 """
-def model():
+def model(w1,w2):
     
     """
     --------------------------------------------------------------------------
@@ -154,16 +155,17 @@ def model():
         config.w2 = w2
         config.j = config.j+1
     '''
-    import config
-    w1 = config.w1
-    w2 = config.w2
-    
+    # import config
+    # w1 = config.w1
+    # w2 = config.w2
+
     # Concatenate w
-    _w = vertcat(w1, w2)
+    # _w = vertcat(w1, w2)
+    _w = vertcat(0.,0.)
 
     
     # Define the differential equations
-    _xplus = mtimes(A, _x)+mtimes(B, _u) + NP.multiply(_p, _w)
+    _xplus = mtimes(A, _x)+mtimes(B, _u) + NP.multiply(_p,_w)
     
     """
     --------------------------------------------------------------------------

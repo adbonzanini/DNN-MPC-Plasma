@@ -73,8 +73,8 @@ def optimizer(model):
     --------------------------------------------------------------------------
     """
     # Define the different possible values of the uncertain parameters in the scenario tree
-    p1_values = NP.array([0., 0., 0.])
-    p2_values = NP.array([0., 0., 0.])
+    p1_values = NP.array([-1., 0., 1.])
+    p2_values = NP.array([-1., 0., 1.])
     uncertainty_values = NP.array([p1_values,p2_values])
 
     """
