@@ -103,6 +103,8 @@ Ipred = Ypred2#Ypred[:,1]
 sigmaT = sigma
 sigmaI = sigma2
 
+maxSigma = np.array([max(sigmaT), max(sigmaI)]).reshape(-1,1)
+
 
 print('Done! \n')
 # Exit and show plots if only training is required (do not enter MPC loops)
@@ -179,12 +181,12 @@ N = 50                              # Simulation horizon
 N_robust = 1                        # Robust horizon for multistage MPC
 
 #Initial point
-yi = np.array([[12.],[0.]])
+yi = np.array([[0.],[0.]])
 
 # Set point(s) and time(s) at which the reference changes
 ysp1 = np.array([[2.], [0.]])
-tChange = 50
-ysp2 = np.array([[-2], [0.]])
+tChange = 10
+ysp2 = np.array([[5.], [0.]])
 tChange2 = 10000
 ysp3 = np.array([[0.], [0.]])
 
@@ -300,9 +302,8 @@ Yout = mtimes(LkT.T, solve(LLT, Ytrain[:,0]))
 KssT = casadi_RBF(xTest, xTest,hyp_sT, hyp_lT)
 KinvT = inv(mtimes(LkT, LkT.T))
 VarT = KssT - mtimes([KsT.T, KinvT, KsT])
-SD_T = sqrt(diag(VarT))
 
-Fpred = Function('Fpred', [xTest], [Yout, SD_T],['xTest'],['Yout', 'SD_T'])
+Fpred = Function('Fpred', [xTest], [Yout],['xTest'],['Yout'])
 
 # CadADi function for intensity GP prediction
 KsI = casadi_RBF(Xtrain, xTest, hyp_sI, hyp_lI)
@@ -312,9 +313,8 @@ YoutI = mtimes(LkI.T, solve(LLI, Ytrain[:,1]))
 KssI = casadi_RBF(xTest, xTest,hyp_sI, hyp_lI)
 KinvI = inv(mtimes(LkI, LkI.T))
 VarI = KssT - mtimes([KsI.T, KinvI, KsI])
-SD_I = sqrt(diag(VarI))
 
-FpredI = Function('FpredI', [xTest], [YoutI, SD_I],['xTest'],['YoutI', 'SD_I'])
+FpredI = Function('FpredI', [xTest], [YoutI],['xTest'],['YoutI'])
 
 # CadADi function for run-up data (we need to keep a history of L points to make the prediction at the next step)
 DxReal = Freal(x=x, u=u, wNoise = wNoise, ss=[0,0,0,0])['xNext'] - F(x=x, u=u, wNoise = [0,0], ss=[0,0,0,0])['xNext']
@@ -414,15 +414,17 @@ uss = [float(uss[0]), float(uss[1])]
 ###########################################################################################################
 # INITIALIZE SCENARIOS FOR MULTISTAGE MPC
 ###########################################################################################################
-scenario_idx = [1]
+scenario_idx = [0, 1]
 N_scenarios = len(scenario_idx)
 w_i = [1./N_scenarios]*N_scenarios
 
 # Initialize vectors to store trajectories
-y1S = np.zeros([N_scenarios, N+1])
-y2S = np.zeros([N_scenarios, N+1])
-u1S = np.zeros([N_scenarios, N])
-u2S = np.zeros([N_scenarios, N])
+y1S = np.zeros([N_scenarios, Np+1])
+y2S = np.zeros([N_scenarios, Np+1])
+u1S = np.zeros([N_scenarios, Np])
+u2S = np.zeros([N_scenarios, Np])
+gp1S = np.zeros([N_scenarios, Np])
+gp2S = np.zeros([N_scenarios, Np])
 
 print('Begin loop...')
 
@@ -468,7 +470,6 @@ print('    Done!')
 uopt = np.zeros((nx, Np))
 uOptSeq = np.zeros((nu,N))
 fopt = np.zeros((N,1))
-yopt = np.zeros((N*nx, Np+1))
 yTr = np.zeros((nx, N+1))
 yTrPred = np.matrix(np.zeros((nx, N+1)))
 yModel = np.matrix(np.zeros((nx, N+1)))
@@ -476,7 +477,16 @@ yModel = np.matrix(np.zeros((nx, N+1)))
 # Initialization
 dhat = np.array(prediction).T
 ssPlot=[[float(ysp1[0]), float(ysp1[1])]]
+ssPlot += ssPlot
 YcMat = []
+xki = xRunUp[:,L]
+
+#Convert to list
+uRunUp=np.ndarray.tolist(uRunUp)
+xRunUp=np.ndarray.tolist(xRunUp)
+xRunUpM=np.ndarray.tolist(xRunUpM)
+DxRunUp=np.ndarray.tolist(DxRunUp)
+Ycorrection=np.ndarray.tolist(Ycorrection)
 
 
 ###########################################################################################################
@@ -487,7 +497,6 @@ Tstart = time.time()
 for k in range(0, N):
     # if k==1:
     #     sys.exit()
-    xki = xRunUp[:,L]
     xhati = xki
     yki = np.dot(C,xki)
     yhati = yki
@@ -496,6 +505,7 @@ for k in range(0, N):
     Jactual = 0;
     gp1_opt = np.zeros((1, Np+1))
     gp2_opt = np.zeros((1, Np+1))
+    
     
     # Update the initial condition of the MPC run-up arrays
     uRunUpMPC = [vertcat(uRunUp[0][k:L+k], uRunUp[1][k:L+k])]
@@ -543,18 +553,6 @@ for k in range(0, N):
     lbw += [-inf, -inf]
     ubw += [inf, inf]
     w0 += [0, 0]      
-    
-    # YGP = MX.sym('YGP0', nx)
-    # w += [YGP]
-    # lbw += [Ycorrection[0][k], Ycorrection[1][k]]
-    # ubw += [Ycorrection[0][k], Ycorrection[1][k]]
-    # w0 += [Ycorrection[0][k], Ycorrection[1][k]]
-    # lbw += [float(YcorrectionMPC[0][0]), float(YcorrectionMPC[0][1])]  #<==== !!
-    # ubw += [float(YcorrectionMPC[0][0]), float(YcorrectionMPC[0][1])]
-    # w0 += [float(YcorrectionMPC[0][0]), float(YcorrectionMPC[0][1])]
-    # lbw += [-inf, -inf]
-    # ubw += [inf, inf]
-    # w0 += [Ycorrection[0][k], Ycorrection[1][k]]
 
 
     ###########################################################################################################
@@ -565,15 +563,6 @@ for k in range(0, N):
         np.random.seed(n_sc)
         # wReal = 0*vertcat(np.random.uniform(-3.0*0.25, 3.0*0.25, (1,N+1)),np.random.uniform(-3.0*0.25, 3*0.25, (1, N+1)))
         wReal = vertcat(np.random.normal(0., 0.6, (1,N+1)),np.random.normal(0., 0.6, (1, N+1)))
-        
-        
-        
-        #Convert to list
-        uRunUp=np.ndarray.tolist(uRunUp)
-        xRunUp=np.ndarray.tolist(xRunUp)
-        xRunUpM=np.ndarray.tolist(xRunUpM)
-        DxRunUp=np.ndarray.tolist(DxRunUp)
-        Ycorrection=np.ndarray.tolist(Ycorrection)
     
 
         ###########################################################################################################
@@ -598,12 +587,13 @@ for k in range(0, N):
             
             
             # Integrate until the end of the interval
-            Fk = F(x=Xk, u=Uk, wNoise = gpSwitch*(YGP+scenario_idx[n_sc]*3*variance), ss=yss+uss) #<====
+            Fk = F(x=Xk, u=Uk, wNoise = gpSwitch*(YGP+scenario_idx[n_sc]*3*maxSigma), ss=yss+uss)
             Xk_end = Fk['xNext']
             # Yk_end = mtimes(C, Xk_end)+0*YGP
-            J=J+Fk['Lstage']
+            J=J+w_i[n_sc]*Fk['Lstage']
             # Penalize abrupt changes
             J = J + mtimes(mtimes((Uk-uopt[:,i]).T, RR), Uk-uopt[:,i]) #+ mtimes(mtimes((Yk_end-Yk).T, QQ), Yk_end-Yk)
+
 
             #Predict deviation from model using GP and the L last steps: x(k+1) = Ax + Bu + g(x,u)       
             uRunUpMPC += [Uk]
@@ -612,21 +602,10 @@ for k in range(0, N):
             xRunUpMPC = xRunUpMPC[-L:]
             xRunUpM_MPC = xRunUpM_MPC[-L:]
 
-            # uRunUpMPC = [0,0]
-            # xRunUpMPC += [F(xRunUpMPC[0], uRunUpMPC[0], np.zeros((2,1)), [0,0,0,0])[0]]
-            # xRunUpMPC += [F(xRunUpMPC[0], uRunUpMPC[0], np.zeros((2,1)), [0,0,0,0])[0] + [Ycorrection[0][k], Ycorrection[1][k]]] #<======== !!
-            
             xRunUpMPC += [F(xRunUpMPC[0], uRunUpMPC[0], wDist[:,i], [0,0,0,0])[0]]#<======== !!
             xRunUpM_MPC += [F(xRunUpMPC[0], uRunUpMPC[0], np.zeros((2,1)), [0,0,0,0])[0]]
             
-            DxRunUpMPC += [mtimes(C, xRunUpMPC[L] - xRunUpM_MPC[L]) +YcorrectionMPC[i]]  #<==== TECHNICALLY Dy not Dx!!
-            
-            # DxRunUpMPC+= [FDx(Xk, Uk, vertcat(wDist[:,L+i]))-offset+ [Ycorrection[0][k], Ycorrection[1][k]]] #<==== !!
-            # DxRunUpMPC+= [FDx(Xk, Uk, vertcat(wDist[:,L+i]))-offset+ YGP] #<==== !!
-            # DxRunUpMPC+= [FDx(Xk, Uk, vertcat(wDist[:,L+i]))] #<==== !!
-            # DxRunUpMPC+= [YGP] #<==== !!
-            
-            
+            DxRunUpMPC += [mtimes(C, xRunUpMPC[L] - xRunUpM_MPC[L]) +YcorrectionMPC[i]]  #<==== TECHNICALLY Dy not Dx!!  
             DxRunUpMPC = DxRunUpMPC[-L:]
             
             xx = DxRunUpMPC+uRunUpMPC
@@ -638,7 +617,7 @@ for k in range(0, N):
             else:
                 YcorrectionMPC += [0*YcorrectionMPC[1]] # Correct for future predictions
                 #YcorrectionMPC += [vertcat(Fpred(xx), FpredI(xx))]
-                    
+            
             g   += [Yk-mtimes(C,Xk)]
             lbg += [0]*nx
             ubg += [0]*nx
@@ -655,8 +634,8 @@ for k in range(0, N):
             w0  += [0]*nx
             
             Yk = MX.sym('Y_' + str(i+1)+'_'+ str(n_sc), nx)
-            Ycon = Xtight[i+1][0]             #<------------- TIGHT CONSTRAINTS
-            # Ycon = Xtight[0][0][[0, 2,1,3],:] #<------------- ORIGINIAL CONSTRAINTS
+            # Ycon = Xtight[i+1][0]             #<------------- TIGHT CONSTRAINTS
+            Ycon = Xtight[0][0][[0, 2,1,3],:] #<------------- ORIGINIAL CONSTRAINTS
             w   += [Yk]
             lbw += [-inf, -inf]
             ubw += [inf, inf]
@@ -674,22 +653,32 @@ for k in range(0, N):
 
         # Terminal cost and constraints (Xk --> i+1)
         # Terminal Cost
-        J = J + mtimes(mtimes((Yk-vertcat(yss)).T,PN),(Yk-vertcat(yss)))
-        
+        J = J + w_i[n_sc]*mtimes(mtimes((Yk-vertcat(yss)).T,PN),(Yk-vertcat(yss)))
+
         # # Terminal Constraint
         g += [mtimes(Xf[:,0:2], Yk-yss)]
         # g+=[Yk]
         lbg += [-inf]*len(Xf[:,2])
         ubg += np.ndarray.tolist(Xf[:,2])
         
-        #??
+        # Equality constraint to make sure that Yk at the last step is equal to  C*Xk
         g += [Yk-mtimes(C,Xk)]
         lbg += [0]*nx
         ubg += [0]*nx
         
+    # Non-anticipativity constraints
+    Nrepeat = (len(w)-2)/N_scenarios
+    NstepVars = 4
+    for con_idx1 in range(2, len(w)-2-Nrepeat, 4):
+        for con_idx2 in range(con_idx1, len(w)-2-Nrepeat, Nrepeat):
+            g += [w[con_idx2]-w[con_idx2+Nrepeat]]
+            lbg += [0]*nx
+            ubg += [0]*nx        
+        
     # Create an NLP solver
     prob = {'f': J, 'x': vertcat(*w), 'g': vertcat(*g)}
-    sol_opts = {'ipopt.print_level':0, 'ipopt.max_cpu_time':5.}
+    sol_opts ={}
+    # sol_opts = {'ipopt.print_level':0, 'ipopt.max_cpu_time':10.}
     solver = nlpsol('solver', 'ipopt', prob, sol_opts)
     # solver = qpsol('solver', 'qpoases', prob)
         
@@ -699,34 +688,45 @@ for k in range(0, N):
     w_opt = sol['x'].full().flatten()
     J_opt = sol['f'].full().flatten()
     
-    sys.exit()
-    
     y1_opt = w_opt[2::8]
     y2_opt = w_opt[3::8]
     u1_opt = w_opt[4::8]
     u2_opt = w_opt[5::8]
     gp1_opt = w_opt[6::8]
     gp2_opt = w_opt[7::8]
-
-        
+     
     feasMeasure = solver.stats()['return_status']
     print('----------------------------------------------')
     print(feasMeasure)
     print('----------------------------------------------')
-        
+    
+    # Assign optimization outputs into the respective scenarios
+    for ii in range(0, N_scenarios):
+        y1S[ii,:] = np.hstack([y1_opt[0], np.split(y1_opt[1:], N_scenarios)[ii]])
+        y2S[ii,:] = np.hstack([y2_opt[0], np.split(y2_opt[1:], N_scenarios)[ii]])
+        u1S[ii,:] = np.split(u1_opt, N_scenarios)[ii]
+        u2S[ii,:] = np.split(u2_opt, N_scenarios)[ii]
+        gp1S[ii,:] = np.split(gp1_opt, N_scenarios)[ii]
+        gp2S[ii,:] = np.split(gp2_opt, N_scenarios)[ii]
+    
+    
+    # Perform plant simulations for the next step using the plant model
     uopt = np.vstack([u1_opt, u2_opt])
-    # uopt = np.zeros((nx, Np))
     uOptSeq[:,k] = uopt[:,0]
     fopt[k] = J_opt
-    yopt = np.vstack([y1_opt, y2_opt])
+    
+    # If this is the first simulation step, define Ycorrection from solution 
     if k==0:
         YcorrSol = np.array([[gp1_opt[0]],[gp2_opt[0]]])
-    YcorrSol = np.hstack([YcorrSol, np.array([[gp1_opt[0]],[gp2_opt[0]]])])
-    # Jactual = Jactual + F(x=xopt[:,0], u=uopt[:,0], wNoise = np.zeros((nx,1)), ss=[xss,uss])['Lstage']
-    # if feasMeasure =='Maximum_CpuTime_Exceeded':
-    #     uopt[:,0] = np.zeros((uOptSeq[:,k-1].shape))
+        
+    # Otherwise, stack the solution to the existing matrix
+    else:    
+        YcorrSol = np.hstack([YcorrSol, np.array([[gp1_opt[0]],[gp2_opt[0]]])])
+
     
-    # Update intial condition
+    #     Update intial condition. Can change the if statement to define 
+    #     when the plant-model mismatch is introduced (e.g. glass-to-metal
+    #     transition).
     if k<0:
         xki = mtimes(A,xki)+mtimes(B,uopt[:,0]) + wReal[:,k]
         yki = mtimes(C,xki) + offset 
@@ -734,7 +734,10 @@ for k in range(0, N):
         xki = mtimes(Areal,xki)+mtimes(Breal,uopt[:,0]) + wReal[:,k]
         yki = mtimes(C,xki) + offset 
     
-    # Disturbance estimator/Observer          
+    #     Disturbance estimator/Observer. Note that due to the state feedback
+    #     assumption, xhat is not used, unless the offset-free formulation is
+    #     implemented (see if statement below, where xhat is overwritten if 
+    #     the GP formulation is implemented).
     x_d_hat = mtimes(Adist, vertcat(xhati, dhat)) +mtimes(Bdist, uopt[:,0]) + np.dot(Kinf, yki - np.dot(C, xhati)-np.dot(Cd, dhat))
     xhati = x_d_hat[0:2]
     dhat = x_d_hat[2:]
@@ -744,23 +747,25 @@ for k in range(0, N):
         Ycorrection[1][k+1] = float(dhat[1])
         
     elif gpSwitch == 1:
-        # Disturbance "measurement" (remove for disturbance estimation)
+        # Disturbance "measurement" (comment out for disturbance estimation)
         # dhat = yki - (mtimes(A,xhati)+mtimes(B,uopt[:,0]))
         
-        xhati = mtimes(A, xhati) +mtimes(B, uopt[:,0])+YcorrSol[:,k]   
-        yp = mtimes(C, xhati)
-        yModel[:,k+1] = yp
+        #     State estimate is given by applying the GP correction (estimation
+        #     is overwritten.
+        xhati = mtimes(A, xhati) +mtimes(B, uopt[:,0])+YcorrSol[:,k]
+        yModel[:,k+1] = mtimes(C, xhati)
 
+        #     Disturbance estimate used to initialize the plant-model mismatch 
+        #     at the next simulation step
         Ycorrection[0][k+1] = float(dhat[0])
         Ycorrection[1][k+1] = float(dhat[1])
         
-
     else:
         Ycorrection[0][k+1] = 0
         Ycorrection[1][k+1] = 0
     
     
-    # State Feedback (remove for output feedback)!!
+    # State Feedback (comment out for output feedback)!!
     xhati = yki 
         
     xPred = np.array((mtimes(A,xki) + mtimes(B,uopt[:,0])) + 0*np.vstack((Ycorrection[0][k], Ycorrection[1][k]))).reshape(2,)
@@ -791,8 +796,12 @@ for k in range(0, N):
     
     YcMat +=[np.vstack([gp1_opt, gp2_opt])]
     
+    # No offset-free formulation => no setpoint correction
     if OFswitch == 0:
-        spYc = 0*np.array([[gp1_opt[0]], [gp2_opt[0]]])  #<==== update sp at the beginning or at the end?
+        spYc = np.zeros((2,1))
+        # spYc = 0*np.array([[gp1_opt[0]], [gp2_opt[0]]])  #<==== update sp at the beginning or at the end?
+        
+    # Otherwise => correct by the amount of the estimated disturbance
     else:
         spYc = np.array([[Ycorrection[0][k+1]], [Ycorrection[1][k+1]]])
         # spYc = np.array([[dhat[0]], [dhat[1]]])
@@ -829,11 +838,7 @@ Tend = time.time()
 print '\n'
 print 'time =', Tend-Tstart,'s'
 
-y1S[n_sc, :] = yTr[0,:]
-y2S[n_sc, :] = yTr[1,:]
-u1S[n_sc, :] = uOptSeq[0,:]
-u2S[n_sc, :] = uOptSeq[1,:]
-
+'''
 # Constraint violation fraction
 CVF = yTr[0][tChange+20:]>=5
 CVF = CVF.astype(int)
@@ -843,7 +848,7 @@ if len(CVF)>=1:
 
 CVFavg = np.mean(CVFvec) 
 print('Constraint Violation = ', CVFavg, '%')
-
+'''
 if saveSwitch ==1:
     sio.savemat('/users/adbonzanini/Box Sync/Berkeley/Research/Gaussian Process/MIMO GP State Feedback Substrates/Output Data Files/'+TimeStamp+'_trajectories.mat', {'xTraj':yTr, 'uTraj': uOptSeq, 'xsp':ssPlot, 'Q':Q,'R':R, 'RR':RR, 'Np':Np, 'N':N, 'gpSwitch':gpSwitch, 'OFswitch':OFswitch, 'Ucon':Ucon, 'Xtight':Xtight, 'y1MC':y1MC, 'y2MC':y2MC, 'u1MC':u1MC, 'u2MC':u2MC})
 
