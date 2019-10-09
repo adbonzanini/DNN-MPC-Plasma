@@ -177,16 +177,16 @@ nx = Q.shape[0]
 nu = R.shape[0]
 
 Np = 3                              # Prediction horizon
-N = 50                              # Simulation horizon
+N = 25                              # Simulation horizon
 N_robust = 1                        # Robust horizon for multistage MPC
 
 #Initial point
 yi = np.array([[0.],[0.]])
 
 # Set point(s) and time(s) at which the reference changes
-ysp1 = np.array([[2.], [0.]])
-tChange = 10
-ysp2 = np.array([[5.], [0.]])
+ysp1 = np.array([[2.], [2.]])
+tChange = 5
+ysp2 = np.array([[5.], [2.]])
 tChange2 = 10000
 ysp3 = np.array([[0.], [0.]])
 
@@ -238,10 +238,12 @@ Aaug = np.vstack([np.hstack([np.eye(2,2)-A, -B]),np.hstack([np.dot(Haug,C), np.z
 Adist = np.vstack([np.hstack([A, Bd]), np.hstack([np.zeros((2,2)), np.eye(2,2)])])
 Bdist = np.vstack([B, np.zeros((2,2))])
 Cdist = np.hstack([C, Cd])
-Qnoise = np.diag([0.1, 0.1, 1.e-6, 1.e-6])
-Rnoise = np.diag([0.5, 0.5])
+Qnoise = np.diag([0.1, 0.1, 0.1, 0.1])
+Rnoise = np.diag([0, 0])
 Pinf = scipy.linalg.solve_discrete_are(Adist.T, Cdist.T, Qnoise, Rnoise)
 Kinf = np.dot(np.dot(Pinf, Cdist.T),np.linalg.inv(np.dot(np.dot(Cdist, Pinf), Cdist.T)+Rnoise))
+print(Kinf)
+# sys.exit()
 
 #LQR gain
 Plqr = scipy.linalg.solve_discrete_are(A, B, Q, R)
@@ -677,8 +679,8 @@ for k in range(0, N):
         
     # Create an NLP solver
     prob = {'f': J, 'x': vertcat(*w), 'g': vertcat(*g)}
-    sol_opts ={}
-    # sol_opts = {'ipopt.print_level':0, 'ipopt.max_cpu_time':10.}
+    # sol_opts ={}
+    sol_opts = {'ipopt.print_level':0, 'ipopt.max_cpu_time':10.}
     solver = nlpsol('solver', 'ipopt', prob, sol_opts)
     # solver = qpsol('solver', 'qpoases', prob)
         
