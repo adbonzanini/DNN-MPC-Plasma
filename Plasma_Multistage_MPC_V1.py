@@ -184,9 +184,9 @@ N_robust = 1                        # Robust horizon for multistage MPC
 yi = np.array([[0.],[0.]])
 
 # Set point(s) and time(s) at which the reference changes
-ysp1 = np.array([[2.], [2.]])
+ysp1 = np.array([[2.], [1.]])
 tChange = 5
-ysp2 = np.array([[5.], [2.]])
+ysp2 = np.array([[4.], [1.]])
 tChange2 = 10000
 ysp3 = np.array([[0.], [0.]])
 
@@ -238,8 +238,8 @@ Aaug = np.vstack([np.hstack([np.eye(2,2)-A, -B]),np.hstack([np.dot(Haug,C), np.z
 Adist = np.vstack([np.hstack([A, Bd]), np.hstack([np.zeros((2,2)), np.eye(2,2)])])
 Bdist = np.vstack([B, np.zeros((2,2))])
 Cdist = np.hstack([C, Cd])
-Qnoise = np.diag([0.1, 0.1, 0.1, 0.1])
-Rnoise = np.diag([0, 0])
+Qnoise = np.diag([1., 1., 1.e-6, 1.e-6])
+Rnoise = np.diag([0., 0.])
 Pinf = scipy.linalg.solve_discrete_are(Adist.T, Cdist.T, Qnoise, Rnoise)
 Kinf = np.dot(np.dot(Pinf, Cdist.T),np.linalg.inv(np.dot(np.dot(Cdist, Pinf), Cdist.T)+Rnoise))
 print(Kinf)
@@ -416,7 +416,7 @@ uss = [float(uss[0]), float(uss[1])]
 ###########################################################################################################
 # INITIALIZE SCENARIOS FOR MULTISTAGE MPC
 ###########################################################################################################
-scenario_idx = [0, 1]
+scenario_idx = [1]
 N_scenarios = len(scenario_idx)
 w_i = [1./N_scenarios]*N_scenarios
 
@@ -589,7 +589,7 @@ for k in range(0, N):
             
             
             # Integrate until the end of the interval
-            Fk = F(x=Xk, u=Uk, wNoise = gpSwitch*(YGP+scenario_idx[n_sc]*3*maxSigma), ss=yss+uss)
+            Fk = F(x=Xk, u=Uk, wNoise = gpSwitch*scenario_idx[n_sc]*(YGP+0*maxSigma), ss=yss+uss)
             Xk_end = Fk['xNext']
             # Yk_end = mtimes(C, Xk_end)+0*YGP
             J=J+w_i[n_sc]*Fk['Lstage']
@@ -656,12 +656,14 @@ for k in range(0, N):
         # Terminal cost and constraints (Xk --> i+1)
         # Terminal Cost
         J = J + w_i[n_sc]*mtimes(mtimes((Yk-vertcat(yss)).T,PN),(Yk-vertcat(yss)))
-
+        
+        
         # # Terminal Constraint
         g += [mtimes(Xf[:,0:2], Yk-yss)]
         # g+=[Yk]
         lbg += [-inf]*len(Xf[:,2])
         ubg += np.ndarray.tolist(Xf[:,2])
+        
         
         # Equality constraint to make sure that Yk at the last step is equal to  C*Xk
         g += [Yk-mtimes(C,Xk)]
@@ -768,7 +770,7 @@ for k in range(0, N):
     
     
     # State Feedback (comment out for output feedback)!!
-    xhati = yki 
+    # xhati = yki 
         
     xPred = np.array((mtimes(A,xki) + mtimes(B,uopt[:,0])) + 0*np.vstack((Ycorrection[0][k], Ycorrection[1][k]))).reshape(2,)
     yTrPred[:,k+1] = mtimes(C, xPred)
