@@ -34,7 +34,7 @@ directory = '/Users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC Paper/DN
 # Switch some functionalities on or off
 gpSwitch = 1            # GP correction on/off
 OFswitch = 0            # Offset-free approach on/off
-TrainOnly = 0           # Carry out training only (when validating/testing)
+TrainOnly = 1           # Carry out training only (when validating/testing)
 saveSwitch = 0          # Save outputs on/off
 
 ######################################################################################
@@ -416,7 +416,7 @@ uss = [float(uss[0]), float(uss[1])]
 ###########################################################################################################
 # INITIALIZE SCENARIOS FOR MULTISTAGE MPC
 ###########################################################################################################
-scenario_idx = [1]
+scenario_idx = [0,1]
 N_scenarios = len(scenario_idx)
 w_i = [1./N_scenarios]*N_scenarios
 
@@ -589,7 +589,7 @@ for k in range(0, N):
             
             
             # Integrate until the end of the interval
-            Fk = F(x=Xk, u=Uk, wNoise = gpSwitch*scenario_idx[n_sc]*(YGP+0*maxSigma), ss=yss+uss)
+            Fk = F(x=Xk, u=Uk, wNoise = gpSwitch*scenario_idx[n_sc]*(YGP+1*maxSigma), ss=yss+uss)
             Xk_end = Fk['xNext']
             # Yk_end = mtimes(C, Xk_end)+0*YGP
             J=J+w_i[n_sc]*Fk['Lstage']
