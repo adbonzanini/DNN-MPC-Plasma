@@ -74,6 +74,7 @@ constraints = [constraints, x{1} == xinit];
 constraints = [constraints, X.A*xs <= X.b];
 constraints = [constraints, U.A*us <= U.b];
 objective = 0;
+
 for k = 1:N
     objective = objective + sum((Q*(x{k}-xs)).*(x{k}-xs)) + sum((R*(u{k}-us)).*(u{k}-us));
     constraints = [constraints, x{k+1} == A*x{k} + B*u{k}]; % dynamic equality constraints
@@ -210,6 +211,10 @@ for i = 1:length(Nlayers_list)
 end
 
 
+% Save variables used later so that we can run the DNN-controller in a separate file
+save('Supporting-Data-Files/DNN_training.mat','net','xscale_min','xscale_max', 'tscale_min', 'tscale_max', ...
+    'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K')
+
 
 
 %% Project into maximal robust control invariant set
@@ -243,7 +248,7 @@ constraints = [constraints, U.A*uproject <= U.b];
 objective = objective + (uexplicit - uproject)'*(uexplicit - uproject);
 
 % Add constraints on the explicit variable to bound the size of the mp map
-constraints = [constraints, -2*(u_max-u_min)' + 5*u_min' <= uexplicit <= u_max' + 2*(u_max-u_min)'];
+constraints = [constraints, -2*(u_max-u_min)' + u_min' <= uexplicit <= u_max' + 2*(u_max-u_min)'];
 constraints = [constraints, Cinf.A*xcurrent <= Cinf.b];
 
 % Create optimizer object
@@ -251,11 +256,14 @@ ops = sdpsettings('verbose',0);
 explicit_controller = optimizer(constraints,objective,ops,[xcurrent;uexplicit],[uproject]);
 
 % Calculate the explicit solution using yalmip
-[mptsol,diagn,Z,Valuefcn,Optimizer] = solvemp(constraints,objective ,[],[xcurrent;uexplicit],[uproject]);
+[mptsol,diagn,Z,Valuefcn,Optimizer] = solvemp(constraints,objective ,ops,[xcurrent;uexplicit],[uproject]);
+
 
 
 
 %% Perform simulations to check results
+
+
 
 % calculate offset gain
 Hd = C*inv(eye(nx)-(A+B*K));
@@ -294,6 +302,7 @@ for k = 1:Nsim
     if useProj
         assign(xcurrent, Xsim(:,k));
         assign(uexplicit, uexp);
+        value(Optimizer)
         Usim(:,k) = value(Optimizer);        
     else
         Usim(:,k) = uexp;
