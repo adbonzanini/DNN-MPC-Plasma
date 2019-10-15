@@ -1,0 +1,29 @@
+%Test pcp ip
+
+t = tcpip(host, port, 'NetworkRole', 'client');
+
+y_meas=cell(10, 1);
+fopen(t);
+disp('Connection established...')
+for i=1:5
+disp('Start Loop')
+% Send initial point as a comma-delimited string
+u_opt=[1.5;1.5];
+fprintf(t, '%1f, %1f ', [u_opt(1), u_opt(2)])
+% Usend = sprintf('%.1f,', u_opt(:));
+% Usend = Usend(1:end-1);
+disp('Sending initial point...') 
+% fwrite(t, Usend)
+disp(['[', Usend, ']'])
+
+
+% Receive measurement
+disp('Receive Measurement...')
+1, t.BytesAvailable]
+y_meas{i} = fscanf(t, '%s');
+y_meas{i}
+disp('Done!\n')
+end
+
+
+fclose(t);

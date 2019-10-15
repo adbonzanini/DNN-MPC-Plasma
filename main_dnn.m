@@ -48,7 +48,8 @@ Constraints = load([directory,'/supporting-data-files/robustConstraintsWorstCase
 % State constraints
 Xcon = Constraints.Xtight{1};
 % Input constraints
-Ucon = Constraints.Ucon;
+Ucon =[1, 0, 7;-1, 0 1.5; 0, 1, 2; 0,-1, 2.5];
+
 % Terminal constraints
 Xf = Constraints.Xtight{1};
 
@@ -216,7 +217,7 @@ save('Supporting-Data-Files/DNN_training.mat','net','xscale_min','xscale_max', '
     'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K')
 
 
-
+return
 %% Project into maximal robust control invariant set
 
 % Bounds on w (not needed here)

@@ -10,6 +10,8 @@ clear all
 %% Load relevant inputs for DNN training
 load('Supporting-Data-Files/DNN_training.mat')
 
+U = Polyhedron('A',[1, 0;-1, 0;0, 1;0,-1], 'b', [7;1.5;2;2])
+U
 %% User-defined inputs
 
 % Experiments or simulations
