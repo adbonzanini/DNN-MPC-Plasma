@@ -4,11 +4,20 @@
 %   saved in the DNN_training.mat file.
 %
 
+
+% Re-visit model --> collect data
+% Reduce sampling time? --> is this going to affect data collection?
+
 % Clear workspace
 clear all
 
 %% Load relevant inputs for DNN training
-load('Supporting-Data-Files/DNN_training.mat')
+load('Supporting-Data-Files/DNN_training.mat');
+model_ID=load('Supporting-Data-Files/MIMOmodelGlass.mat');
+Tss = model_ID.steadyStates(1);
+Iss = model_ID.steadyStates(2);
+Pss = model_ID.steadyStates(3);
+Qss = model_ID.steadyStates(4);
 
 %% User-defined inputs
 
@@ -22,7 +31,7 @@ useProj = 1;
 Nsim = 100;
 
 % Define reference
-Sdes = [zeros(nx, 20), [4.9;2].*ones(nx, Nsim+1-20)];
+Sdes = [zeros(nx, 20), [3;-2].*ones(nx, Nsim+1-20)];
 
 
 
@@ -80,14 +89,15 @@ if runExperiments==1
     t = tcpip(host, port, 'NetworkRole', 'client');
     fopen(t);
     disp('Connection established...')
-    pause(4);
+    pause(6);
     
     % Send initial point as a comma-delimited string
     u_opt=[1.5;1.5];
-    Usend = sprintf('%6.1f, %6.1f ', [u_opt(2), u_opt(1)]);  %INPUTS ARE SWITCHED!! (P,Q)
+    Usend = sprintf('%6.1f, %6.1f ', [u_opt(1), u_opt(2)]);
     disp('Sending initial point...') 
     fwrite(t, Usend)
-    disp(['Sent inputs (P, Q) = ', '[', Usend, ']'])
+    disp(['Sent inputs (Q, P) = ', '[', Usend, ']'])
+
 end
 
 % calculate offset gain
@@ -102,7 +112,7 @@ Wsim = zeros(nx,Nsim);
 What = zeros(nx,Nsim);
 
 % initial states
-Xsim(:,1) = [1;0];
+Xsim(:,1) = [0;0];
 Ysim(:,1) = C*Xsim(:,1);
 
 % Initialize vectors for plotting
@@ -112,12 +122,18 @@ Uplot = Usim;
 % reset random seed
 rng(200, 'twister')
 
+figure(1)
+hold on
+xlabel('Time Step')
+ylabel('Temperature/oC')
 % run loop over time
 for k = 1:Nsim
     % evaluate the explicit controller
     xscaled = ([Xsim(:,k);Sdes(:,k)-Hd*What(:,k)] - xscale_min')./(xscale_max-xscale_min)';
     tscaled = net(xscaled)';
     uexp = (tscale_min+(tscale_max-tscale_min).*tscaled)';
+    
+
 
     % specify to use the projection or just the DNN
     if useProj == 1
@@ -127,6 +143,13 @@ for k = 1:Nsim
         Usim(:,k) = value(Optimizer);        
     else
         Usim(:,k) = uexp;
+    end
+
+    if isnan(uexp)==[1;1]
+        warning('NaN in uexp. Assigning previous value...');
+        Usim(:,k) = Usim(:,k-1);
+        Ysim(:,k) = Ysim(:,k-1);
+        Xsim(:,k) = Ysim(:,k);
     end
     % this calls the original offset-free mpc
 %     [sol,errorcode] = controller{[Xsim(:,k);Sdes(:,k)-Hd*What(:,k)]};
@@ -143,13 +166,15 @@ for k = 1:Nsim
         
     else
         % Send optimal input to the set-up
-        Usend = [Usim(2,k)+3.0;Usim(1,k)+3.0];
-        Usend=[Usend(:)', Sdes(1,k)+38.0,(Sdes(2,k)+9.7)*10.0];
+        Usend = [Usim(1,k)+Qss;Usim(2,k)+Pss];
+        Usend=[Usend(:)', Sdes(1,k)+Tss,(Sdes(2,k)+Iss)*10.0];
         Usend = sprintf('%.1f,', Usend(:));
         Usend = Usend(1:end-1);
-        disp('Sending inputs...')        
+        disp('Sending inputs...') 
         fwrite(t, Usend)
-        disp(['Sent inputs (P,q,Tss, Iss) = ','[', Usend, ']'])  
+        disp(['Sent inputs (q,P,Tss, Iss) = ','[', Usend, ']'])
+        
+        pause(0.8)
         
         % Receive measurement
         disp('Receive Measurement...')
@@ -162,37 +187,49 @@ for k = 1:Nsim
         catch
             % Assign previous measurements if no measurement is obtained
             disp('Assigning previous measurement')
-            y_m = Yplot(:,k)';  
+            
+            if Yplot(1,k)==0
+                y_m = [Tss, Iss*10];
+            else
+                y_m = Yplot(:,k)'; 
+            end
         end
-        pause(1)
+        
+        disp(y_m)
         
         % Temperature
         Yplot(1,k+1) = y_m(1);
-        Ysim(1,k+1) = y_m(1)-38.0;
+        Ysim(1,k+1) = y_m(1)-Tss;
 
         % Intensity
         Yplot(2,k+1) = y_m(2);
-        Ysim(2,k+1) = y_m(2)*0.1-9.7;
+        Ysim(2,k+1) = y_m(2)*0.1-Iss;
         
         % State feedback
-        Xsim(:,k) = Ysim(:,k);
+        Xsim(:,k+1) = Ysim(:,k+1);
 
         % Optimal inputs
-        Uplot(:,k) = Usim(:,k)+[3.0;3.0];
+        Uplot(:,k) = Usim(:,k)+[Qss;Pss];
         
         % Measure plant-model mismatch (state feedback case)
-        Wsim = Xsim(:,k+1)-A*Xsim(:,k)-B*Usim(:,k);
+        Wsim(:,k) = Xsim(:,k+1)-A*Xsim(:,k)-B*Usim(:,k);
+        
+        % Live plotting
+        plot(Yplot(1,1:k), 'r')
+        plot(Sdes(1,1:k)+Tss, 'k--')
     end
 
     % estimate disturbance
-    What(:,k+1) = lambdaf*What(:,k) + (1-lambdaf)*Wsim;
+    What(:,k+1) = lambdaf*What(:,k) + (1-lambdaf)*Wsim(:,k);
 end
 
 
 % Close pcp ip connection
-fclose(t)
+if runExperiments==1
+    fclose(t)
+end
 
-
+%%
 % Plot results
 
 % Plot phase plot
