@@ -28,10 +28,11 @@ runExperiments = 1;
 useProj = 1;
 
 % Number of simulations/time-steps
-Nsim = 100;
+Nsim = 80;
 
 % Define reference
-Sdes = [zeros(nx, 20), [3;-2].*ones(nx, Nsim+1-20)];
+tChange = 40;
+Sdes = [zeros(nx, tChange), [3;2].*ones(nx, Nsim+1-tChange)];
 
 
 
@@ -92,9 +93,10 @@ if runExperiments==1
     pause(6);
     
     % Send initial point as a comma-delimited string
-    u_opt=[1.5;1.5];
+    u_opt=[1.5;2.0];
     Usend = sprintf('%6.1f, %6.1f ', [u_opt(1), u_opt(2)]);
     disp('Sending initial point...') 
+    pause(0.2)
     fwrite(t, Usend)
     disp(['Sent inputs (Q, P) = ', '[', Usend, ']'])
 
@@ -102,7 +104,7 @@ end
 
 % calculate offset gain
 Hd = C*inv(eye(nx)-(A+B*K));
-lambdaf = 0.5;
+lambdaf = 0.8;
 
 % initialize
 Xsim = zeros(nx,Nsim+1);
@@ -147,9 +149,12 @@ for k = 1:Nsim
 
     if isnan(uexp)==[1;1]
         warning('NaN in uexp. Assigning previous value...');
-        Usim(:,k) = Usim(:,k-1);
+
+        Usim(:,k) = [0;0];
+        What(:,k) = Wsim(:,k-1);
         Ysim(:,k) = Ysim(:,k-1);
         Xsim(:,k) = Ysim(:,k);
+        
     end
     % this calls the original offset-free mpc
 %     [sol,errorcode] = controller{[Xsim(:,k);Sdes(:,k)-Hd*What(:,k)]};
@@ -171,10 +176,11 @@ for k = 1:Nsim
         Usend = sprintf('%.1f,', Usend(:));
         Usend = Usend(1:end-1);
         disp('Sending inputs...') 
+        pause(0.2)
         fwrite(t, Usend)
         disp(['Sent inputs (q,P,Tss, Iss) = ','[', Usend, ']'])
         
-        pause(0.8)
+        pause(1)
         
         % Receive measurement
         disp('Receive Measurement...')
@@ -213,6 +219,9 @@ for k = 1:Nsim
         
         % Measure plant-model mismatch (state feedback case)
         Wsim(:,k) = Xsim(:,k+1)-A*Xsim(:,k)-B*Usim(:,k);
+        if isnan(Wsim(:,k))==[1;1]
+            Wsim(:,k) = Wsim(:,k-1);
+        end
         
         % Live plotting
         plot(Yplot(1,1:k), 'r')

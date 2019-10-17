@@ -14,9 +14,9 @@ rng(100, 'twister')
 %% Setup tracking mpc problem
 
 % Cost matrices
-Q = diag([10,1]);
-R = 0.01*diag([0.5, 0.2]);
-PN = 0*Q;
+Q = diag([3,0.1]);
+R = diag([5, 2]);
+PN = 1*Q;
 
 % Load identified model matrices for 
 % x(k+1) = Ax(k) + Bu(k)
@@ -40,7 +40,7 @@ K = -K;                         % Matlab vs. literature conventions
 
 % Observer parameters
 Hs = (C+D*K)*inv(eye(nx)+(A+B*K));
-lf = 0.9;
+% lf = 0.9;
 
 % Load constraints (loading robust constraints just as a placeholder. 
 % We will only use the first, i.e non-tightened, constraints of these)
@@ -48,12 +48,15 @@ Constraints = load([directory,'/supporting-data-files/robustConstraintsWorstCase
 % State constraints
 Xcon = Constraints.Xtight{1};
 % Input constraints
-% Ucon =[1, 0, 6;-1, 0 1.5; 0, 1, 3; 0,-1, 1];
 Ucon = Constraints.Ucon;
+Ucon(:,3) = [7;1.5;2;2.5];
 
 % Terminal constraints
 Xf = Constraints.Xtight{1};
-Xcon(:,3) = [5;25;5;25];
+% Xcon(:,3) = [20;30;10;25];
+% Xcon(:,3) = [99;99;99;99];
+Ucon(2,3) = 1.2;
+
 % Create` constraints in MPT 
 X = Polyhedron('A',Xcon(:,1:2),'b',Xcon(:,3));
 U = Polyhedron('A',Ucon(:,1:2),'b',Ucon(:,3));
