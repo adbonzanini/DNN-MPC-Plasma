@@ -14,8 +14,10 @@ rng(100, 'twister')
 %% Setup tracking mpc problem
 
 % Cost matrices
-Q = diag([3,0.1]);
-R = diag([5, 2]);
+% Q = diag([3, 0.2]);
+% R = diag([20, 10]);
+Q = diag([3, 0.2]);
+R = diag([20, 10]);
 PN = 1*Q;
 
 % Load identified model matrices for 
@@ -53,8 +55,7 @@ Ucon(:,3) = [7;1.5;2;2.5];
 
 % Terminal constraints
 Xf = Constraints.Xtight{1};
-% Xcon(:,3) = [20;30;10;25];
-% Xcon(:,3) = [99;99;99;99];
+Xcon(:,3) = [6;25;5;25]; % <-- check x_max!
 Ucon(2,3) = 1.2;
 
 % Create` constraints in MPT 
@@ -112,7 +113,7 @@ controller = optimizer(constraints,objective,ops,[xinit;ys],[u{1}]);
 
 % Marginals for states
 x_min = [-5, -20];
-x_max = [5, 20];
+x_max = [6, 20];
 u_min = [-1.5, -2.5];
 u_max = [7, 2];
 for i = 1:nx

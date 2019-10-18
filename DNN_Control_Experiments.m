@@ -4,6 +4,10 @@
 %   saved in the DNN_training.mat file.
 %
 
+% Two files before 14:48
+% Two files before 15:06
+% 5-->    <16:10; 16:11, 
+% 5.5 --> <16:17; 16:19; || 16:23; 16:27 || 16:32; 16:36 ||
 
 % Re-visit model --> collect data
 % Reduce sampling time? --> is this going to affect data collection?
@@ -25,22 +29,22 @@ Qss = model_ID.steadyStates(4);
 runExperiments = 1;
 
 % Switch for projection to a safe set
-useProj = 1;
+useProj = 0;
 
 % Number of simulations/time-steps
-Nsim = 80;
+Nsim = 160;
 
 % Define reference
-tChange = 40;
-Sdes = [zeros(nx, tChange), [3;2].*ones(nx, Nsim+1-tChange)];
+tChange = 80;
+Sdes = [zeros(nx, tChange), [5.5;2].*ones(nx, Nsim+1-tChange)];
 
 
 
 %% Project into maximal robust control invariant set
 
 % Bounds on w (not needed here)
-w_upper = [0.8; 2.0]';
-w_lower = [-0.8; -2.0]';
+w_upper = [1.1; 0]';
+w_lower = [0; 0]';
 W = Polyhedron('lb',w_lower','ub',w_upper');
 
 % Calculate robust control invariant set
@@ -93,7 +97,7 @@ if runExperiments==1
     pause(6);
     
     % Send initial point as a comma-delimited string
-    u_opt=[1.5;2.0];
+    u_opt=[2.5;1.5];
     Usend = sprintf('%6.1f, %6.1f ', [u_opt(1), u_opt(2)]);
     disp('Sending initial point...') 
     pause(0.2)
@@ -104,7 +108,7 @@ end
 
 % calculate offset gain
 Hd = C*inv(eye(nx)-(A+B*K));
-lambdaf = 0.8;
+lambdaf = 0.9;
 
 % initialize
 Xsim = zeros(nx,Nsim+1);
@@ -125,9 +129,6 @@ Uplot = Usim;
 rng(200, 'twister')
 
 figure(1)
-hold on
-xlabel('Time Step')
-ylabel('Temperature/oC')
 % run loop over time
 for k = 1:Nsim
     % evaluate the explicit controller
@@ -147,10 +148,10 @@ for k = 1:Nsim
         Usim(:,k) = uexp;
     end
 
-    if isnan(uexp)==[1;1]
-        warning('NaN in uexp. Assigning previous value...');
+    if isnan(Usim(:,k))==[1;1]
+        warning('NaN in Usim. Assigning previous value...');
 
-        Usim(:,k) = [0;0];
+        Usim(:,k) = [0;-1];
         What(:,k) = Wsim(:,k-1);
         Ysim(:,k) = Ysim(:,k-1);
         Xsim(:,k) = Ysim(:,k);
@@ -176,11 +177,11 @@ for k = 1:Nsim
         Usend = sprintf('%.1f,', Usend(:));
         Usend = Usend(1:end-1);
         disp('Sending inputs...') 
-        pause(0.2)
+        pause(0.3)
         fwrite(t, Usend)
         disp(['Sent inputs (q,P,Tss, Iss) = ','[', Usend, ']'])
         
-        pause(1)
+        pause(0.9)
         
         % Receive measurement
         disp('Receive Measurement...')
@@ -224,18 +225,33 @@ for k = 1:Nsim
         end
         
         % Live plotting
+        subplot(2,1,1)
+        hold on
         plot(Yplot(1,1:k), 'r')
-        plot(Sdes(1,1:k)+Tss, 'k--')
+        plot(Sdes(1,1:k)+Tss, 'k-')
+        plot([0,k],[x_max(1)+Tss,x_max(1)+Tss], 'k--')
+        ylim([25, 50])
+        xlabel('Time Step')
+        ylabel('Temperature/oC')
+        
+        subplot(2,1,2)
+        hold on
+        plot(Yplot(2,1:k), 'r')
+        plot((Sdes(2,1:k)+Iss)*10, 'k-')
+        plot([0,k],([x_max(2),x_max(2)]+Iss)*10, 'k--')
+        ylim([0, 255])
     end
+
 
     % estimate disturbance
     What(:,k+1) = lambdaf*What(:,k) + (1-lambdaf)*Wsim(:,k);
 end
-
+%%
 
 % Close pcp ip connection
 if runExperiments==1
-    fclose(t)
+    restorePlasma
+%     fclose(t)
 end
 
 %%
@@ -245,6 +261,7 @@ end
 figure; hold on
 X.plot('wire',1,'edgecolor','r','linestyle','--','linewidth',2)
 plot(Xsim(1,:),Xsim(2,:),'-ok','MarkerFaceColor','k','linewidth',1.5,'MarkerSize',6)
+ylim([-5, 10])
 set(gcf,'color','w');
 set(gca,'FontSize',16)
 axis([-10, 10, -20, 25])
@@ -252,9 +269,19 @@ axis([-10, 10, -20, 25])
 % Plot output
 figure; hold on;
 time = 0:Nsim;
+subplot(2,1,1)
+hold on
 stairs(time,Sdes(1,:),'k')
 plot(time,Ysim(1,:),'r')
 plot([0,Nsim],[x_max(1),x_max(1)],'--r')
+set(gcf,'color','w');
+set(gca,'FontSize',12)
+
+subplot(2,1,2)
+hold on
+stairs(time,Sdes(2,:),'k')
+plot(time,Ysim(2,:),'r')
+plot([0,Nsim],[x_max(2),x_max(2)],'--r')
 set(gcf,'color','w');
 set(gca,'FontSize',12)
 

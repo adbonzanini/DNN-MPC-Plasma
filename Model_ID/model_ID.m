@@ -14,6 +14,9 @@ Dy1ss = 0;
 % Choose if you want to overwrite the datasets
 overwriteData =1;
 
+% Sampling time
+Tsampling = 1.3;
+
 %Ignore the headers (i.e. start from row 1, column 0)
 
 if glass ==1 && metal==0
@@ -101,12 +104,12 @@ u2data = data(:,23)-u2ss;
 ydata = [y1data, y2data];
 udata = [u1data, u2data];
 
-subIDdata = iddata(ydata, udata, 1.3);
+subIDdata = iddata(ydata, udata, Tsampling);
 Ndata = subIDdata.N;
 
 modelOrder = 2;
 opt = ssestOptions('OutputWeight', [1,0;0,1]);
-sys = ssest(subIDdata,modelOrder, 'DisturbanceModel', 'none', 'Form', 'canonical', 'Ts',1.3);
+sys = ssest(subIDdata,modelOrder, 'DisturbanceModel', 'none', 'Form', 'canonical', 'Ts',Tsampling);
 % sys = n4sid(subIDdata, modelOrder, 'DisturbanceModel', 'none', 'Form', 'canonical', 'Ts',1.3);
 % sys = ssregest(subIDdata,modelOrder, 'DisturbanceModel', 'none','Form', 'canonical', 'Ts',1.3);
 
@@ -118,7 +121,8 @@ C = sys.C;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % VERIFY THE MODEL GRAPHICALLY
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-yCompare = lsim(sys, udata, 0:1.3:1.3*size(udata,1)-1);
+simTime = 0:Tsampling:Tsampling*(size(udata,1)-1);
+yCompare = lsim(sys, udata, simTime);
 wmaxTrain = max(ydata-yCompare);
 wminTrain = min(ydata-yCompare);
 % figure(2)
