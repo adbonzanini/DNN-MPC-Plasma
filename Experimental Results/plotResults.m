@@ -7,15 +7,23 @@
 clear all
 
 directory = pwd;
+comparison = 0;
 
 %% Load files
 fnameProj = ['PI_Server_Out_2019-10-17_161504.889852-explicit2';
              'PI_Server_Out_2019-10-17_162329.360513-explicit2';
              'PI_Server_Out_2019-10-17_163158.799811-explicit2'];
 
-fnameNoProj= ['PI_Server_Out_2019-10-17_161915.729781-explicit2';
-              'PI_Server_Out_2019-10-17_162743.399614-explicit2';
-              'PI_Server_Out_2019-10-17_163613.639705-explicit2'];
+
+if comparison==1
+    fnameNoProj= ['PI_Server_Out_2019-10-17_161915.729781-explicit2';
+                  'PI_Server_Out_2019-10-17_162743.399614-explicit2';
+                  'PI_Server_Out_2019-10-17_163613.639705-explicit2'];
+else
+    fnameNoProj= ['PI_Server_Out_2019-10-19_140654.739916-explicit3';
+                  'PI_Server_Out_2019-10-19_141825.013536-explicit3';
+                  'PI_Server_Out_2019-10-19_143444.728697-explicit3'];
+end
 
 % Initialize
 dataWithProjection = cell(3,1);
@@ -79,7 +87,13 @@ cd(directory)
 
 %% Desired Reference
 tChange = 80;
+if comparison==1
 Sdes = [zeros(nx, tChange), [5.5;2].*ones(nx, N-tChange)];
+else
+% Sdes = [[-1;0].*ones(nx, tChange), [2;-2].*ones(nx, N-tChange)];
+Sdes = [[-1;0].*ones(nx, tChange), [2.15;3].*ones(nx, N-tChange)];
+end
+
 
 %% Other parameters
 Tsampling = 1.3;
@@ -89,25 +103,33 @@ tPlot = 1:Tsampling:N*Tsampling;
 figure(1)
 subplot(2,1,1)
 hold on
-h1 = plot(tPlot, Tp, 'b', 'Linewidth', 2);
 h2 = plot(tPlot, Tnp, 'r', 'Linewidth', 2);
 h3 = stairs(tPlot, Sdes(1,:)+model_ID.steadyStates(1), 'k', 'Linewidth', 1);
 h4 = plot([tPlot(1), tPlot(end)], [x_max(1), x_max(1)]+model_ID.steadyStates(1), 'k--');
 h5 = plot([tPlot(1), tPlot(end)], [x_min(1), x_min(1)]+model_ID.steadyStates(1), 'k--');
+if comparison==1
+h1 = plot(tPlot, Tp, 'b', 'Linewidth', 2);
 legend([h1, h2, h3, h4], 'With Projection', 'Without Projection', 'Setpoint', 'Constraints', 'Location', 'southeast')
-ylim([35, 45])
+else
+legend([h2, h3, h4], 'Trajectory', 'Setpoint', 'Constraints', 'Location', 'northwest')
+end
+ylim([28, 48])
 xlabel('Time/s')
 ylabel('Temperature/ ^{\circ}C')
 set(gca,'FontSize',15)
 
 subplot(2,1,2)
 hold on
-h1 = plot(tPlot, Ip, 'b', 'Linewidth', 2);
 h2 = plot(tPlot, Inp, 'r', 'Linewidth', 2);
 h3 = stairs(tPlot, 10*(Sdes(2,:)+model_ID.steadyStates(2)), 'k', 'Linewidth', 1);
 h4 = plot([tPlot(1), tPlot(end)], 10*([x_max(2), x_max(2)]+model_ID.steadyStates(2)), 'k--');
 h5 = plot([tPlot(1), tPlot(end)], 10*([x_min(2), x_min(2)]+model_ID.steadyStates(2)), 'k--');
+if comparison==1
+h1 = plot(tPlot, Ip, 'b', 'Linewidth', 2);
 legend([h1, h2, h3, h4], 'With Projection', 'Without Projection', 'Setpoint', 'Constraints', 'Location', 'northwest')
+else
+legend([h2, h3, h4], 'Trajectory', 'Setpoint', 'Constraints', 'Location', 'northwest')
+end
 ylim([0, 200])
 xlabel('Time/s')
 ylabel('Intensity/ a.u.')
@@ -119,11 +141,15 @@ set(gca,'FontSize',15)
 figure(2)
 subplot(2,1,1)
 hold on
-h1 = plot(tPlot, qp, 'b', 'Linewidth', 2);
 h2 = plot(tPlot, qnp, 'r', 'Linewidth', 2);
 h4 = plot([tPlot(1), tPlot(end)], [u_max(1), u_max(1)]+model_ID.steadyStates(3), 'k--');
 h5 = plot([tPlot(1), tPlot(end)], [u_min(1), u_min(1)]+model_ID.steadyStates(3), 'k--');
+if comparison==1
+h1 = plot(tPlot, qp, 'b', 'Linewidth', 2);
 legend([h1, h2, h4], 'With Projection', 'Without Projection', 'Constraints', 'Location', 'northwest')
+else
+legend([h2, h4], 'Trajectory', 'Constraints', 'Location', 'northwest')
+end
 xlabel('Time/s')
 ylabel('He Flowrate/ slm')
 set(gca,'FontSize',15)
@@ -131,11 +157,15 @@ set(gca,'FontSize',15)
 
 subplot(2,1,2)
 hold on
-h1 = plot(tPlot, Pp, 'b', 'Linewidth', 2);
 h2 = plot(tPlot, Pnp, 'r', 'Linewidth', 2);
 h4 = plot([tPlot(1), tPlot(end)], [u_max(2), u_max(2)]+model_ID.steadyStates(4), 'k--');
 h5 = plot([tPlot(1), tPlot(end)], [u_min(2), u_min(2)]+model_ID.steadyStates(4), 'k--');
+if comparison==1
+h1 = plot(tPlot, Pp, 'b', 'Linewidth', 2);
 legend([h1, h2, h4], 'With Projection', 'Without Projection', 'Constraints', 'Location', 'southeast')
+else
+legend([h2, h4], 'Trajectory', 'Constraints', 'Location', 'northwest')
+end
 xlabel('Time/s')
 ylabel('Applied Power/ W')
 set(gca,'FontSize',15)

@@ -12,10 +12,11 @@ rng(100, 'twister')
 
 
 %% Setup tracking mpc problem
+Ts=1.3;
 
 % Cost matrices
 % Tuning for contstraint violation, but with some oscillations:
-Q = diag([3, 0.2]);
+Q = diag([10, 0.2]);
 R = diag([20, 10]);
 % Tuning without oscillations
 % Q = diag([5, 0.001]);
@@ -31,9 +32,9 @@ modelGlass = load([directory, '/Supporting-Data-Files/MIMOmodelGlass']);
 A = modelGlass.A; B=modelGlass.B; C=modelGlass.C; D=0;
 
 % Sizes
-nx = size(Q,1);
-nu = size(R,1);
-ny = size(C,1);
+nx = size(A,2);
+nu = size(B,2);
+ny = 1;
 
 % Horizon length
 N = 10;
@@ -44,7 +45,6 @@ K = -K;                         % Matlab vs. literature conventions
 
 % Observer parameters
 Hs = (C+D*K)*inv(eye(nx)+(A+B*K));
-% lf = 0.9;
 
 % Load constraints (loading robust constraints just as a placeholder. 
 % We will only use the first, i.e non-tightened, constraints of these)
@@ -60,10 +60,29 @@ Xf = Constraints.Xtight{1};
 Xcon(:,3) = [6;25;5;25]; % <-- check x_max!
 Ucon(2,3) = 1.2;
 
-% Create` constraints in MPT 
+% Create constraints in MPT 
 X = Polyhedron('A',Xcon(:,1:2),'b',Xcon(:,3));
 U = Polyhedron('A',Ucon(:,1:2),'b',Ucon(:,3));
 
+% Marginals for states, inputs, and outputs
+x_min = [-5, -20];
+x_max = [6, 20];
+x_init = [0,0];
+u_min = [-1.5, -2.5];
+u_max = [7, 2];
+u_init = [0,0];
+% Current CEM bounds
+CEM_min = 0;
+CEM_max = 1;
+CEM_init = 0;
+
+%%
+% Setup the mpc problem
+[solver, args, f] = getNMPCSolver(Ts, N, x_init, x_min, x_max, u_init, u_min, u_max, CEM_init, CEM_min, CEM_max);
+
+%%
+
+%{
 % Setup the mpc problem
 if N == 1
     u = sdpvar(repmat(nu,1,N),repmat(1,1,N));
@@ -84,13 +103,26 @@ constraints = [constraints, U.A*us <= U.b];
 objective = 0;
 
 for k = 1:N
-    objective = objective + sum((Q*(x{k}-xs)).*(x{k}-xs)) + sum((R*(u{k}-us)).*(u{k}-us));
+    
+    %Define Kcem
+    if value(x{k})<=2
+        Kcem=0;
+    else
+        Kcem = 0.25;
+    end
+    
+%    objective = objective + (Kcem^(43)/log(Kcem))*(Kcem^(-x{k}(1)-37)-Kcem^(-x{k+1}(1)-37));
+%    objective = objective + Kcem^(43-(x{k}(1)+37));
+%     objective = objective + Kcem^6-Kcem^6*log(Kcem)*x{k}(1) + 0.5*Kcem^6*(log(Kcem))^2*x{k}(1).^2;
+%     objective = objective + sum((Q*(x{k}-xs)).*(x{k}-xs)) + sum((R*(u{k}-us)).*(u{k}-us));
     constraints = [constraints, x{k+1} == A*x{k} + B*u{k}]; % dynamic equality constraints
     constraints = [constraints, U.A*u{k} <= U.b]; % input constraints
     constraints = [constraints, X.A*x{k+1} <= X.b]; % state constraints
 end
-objective = objective + sum((PN*(x{N+1}-xs)).*(x{N+1}-xs)); % terminal cost
-objective = objective + 1000*(ys - C*xs)'*(ys - C*xs);
+objective = objective+Kcem^6-Kcem^6*log(Kcem)*ys(1) + 0.5*Kcem^6*(log(Kcem))^2*ys(1).^2;
+% objective = objective + sum((PN*(x{N+1}-xs)).*(x{N+1}-xs)); % terminal cost
+% objective = objective + 1000*(ys - C*xs)'*(ys - C*xs);
+%}
 
 % Calculate feasible region of mpc problem
 DoA = X;
@@ -105,19 +137,16 @@ for i = 1:N
     end
 end
 
+%{
 % Create optimizer object
 ops = sdpsettings('verbose',0);
 controller = optimizer(constraints,objective,ops,[xinit;ys],[u{1}]);
-
+%}
 
 
 %% Create input objects
 
-% Marginals for states
-x_min = [-5, -20];
-x_max = [6, 20];
-u_min = [-1.5, -2.5];
-u_max = [7, 2];
+
 for i = 1:nx
     Input.Marginals(i).Type = 'Uniform';
     Input.Marginals(i).Parameters = [x_min(i), x_max(i)];    
@@ -129,7 +158,7 @@ myInput_X = uq_createInput(Input);
 % Marginals for the reference
 for i = 1:ny
     Input.Marginals(nx+i).Type = 'Uniform';
-    Input.Marginals(nx+i).Parameters = [x_min(i), x_max(i)];
+    Input.Marginals(nx+i).Parameters = [CEM_min(i), CEM_max(i)];
 end
 
 % Create total "input" object (both states and reference)
@@ -150,6 +179,7 @@ index = DoA.contains(Psamp(:,1:nx)');
 data_rand = Psamp(index,:);
 data_rand = data_rand(1:Nsamp,:);
 
+%{
 % Solve tube mpc problem over samples
 U_mpc = zeros(Nsamp,nu);
 Feas = zeros(Nsamp,1);
@@ -171,6 +201,10 @@ for i = 1:Nsamp
 
     U_mpc(i,:) = uopt';
 end
+%}
+
+[U_mpc, Feas, V_opt] = solveSampleNMPC(solver, args, data_rand);
+
 target_rand = [U_mpc];
 
 % Combine data
@@ -178,8 +212,8 @@ data = [data_rand];
 target = [target_rand];
 
 % Scale variables
-xscale_min = [x_min, x_min];
-xscale_max = [x_max, x_max];
+xscale_min = [x_min, CEM_min];
+xscale_max = [x_max, CEM_max];
 x = (data - repmat(xscale_min,[size(data,1),1]))./(repmat(xscale_max-xscale_min,[size(data,1),1]));
 x = x';
 tscale_min = u_min;

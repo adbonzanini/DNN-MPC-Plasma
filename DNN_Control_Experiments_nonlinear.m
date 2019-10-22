@@ -35,14 +35,13 @@ runExperiments = 0;
 useProj = 0;
 
 % Number of simulations/time-steps
-Nsim = 160;
+Nsim = 100;
 
 % Define reference
-tChange = 80;
+% tChange = 10;
 % Sdes = [[0;0].*ones(nx, tChange), [5.5;-2].*ones(nx, Nsim+1-tChange)];
 % Sdes = [[-1;0].*ones(nx, tChange), [2;2.8].*ones(nx, Nsim+1-tChange)];
-Sdes = [1;0].*ones(nx, Nsim+1);
-
+Sdes = 1*ones(1, Nsim+1);
 
 
 %% Project into maximal robust control invariant set
@@ -117,10 +116,11 @@ lambdaf = 0.95;
 
 % initialize
 Xsim = zeros(nx,Nsim+1);
-Ysim = zeros(ny,Nsim+1);
+Ysim = zeros(nx,Nsim+1);
 Usim = zeros(nu,Nsim);
 Wsim = zeros(nx,Nsim);
 What = zeros(nx,Nsim);
+CEMcurr = zeros(ny, Nsim+1);
 
 % initial states
 Xsim(:,1) = [0;0];
@@ -137,7 +137,9 @@ figure(1)
 % run loop over time
 for k = 1:Nsim
     % evaluate the explicit controller
-    xscaled = ([Xsim(:,k);Sdes(:,k)-Hd*What(:,k)] - xscale_min')./(xscale_max-xscale_min)';
+%     xscaled = ([Xsim(:,k);Sdes(:,k)-Hd*What(:,k)] - xscale_min')./(xscale_max-xscale_min)';
+    xscaled = ([Xsim(:,k);CEMcurr(k)] - xscale_min')./(xscale_max-xscale_min)';
+    
     tscaled = net(xscaled)';
     uexp = (tscale_min+(tscale_max-tscale_min).*tscaled)';
     
@@ -174,6 +176,7 @@ for k = 1:Nsim
         % provide values to plant
         Xsim(:,k+1) = A*Xsim(:,k) + B*Usim(:,k) + Wsim(:,k);
         Ysim(:,k+1) = C*Xsim(:,k+1);
+        CEMcurr(k+1) = CEMcurr(k)+0.25.^(6-Ysim(1,k));
         
     else
         % Send optimal input to the set-up
@@ -212,6 +215,7 @@ for k = 1:Nsim
         % Temperature
         Yplot(1,k+1) = y_m(1);
         Ysim(1,k+1) = y_m(1)-Tss;
+        CEMcurr(k+1) = CEMcurr(k)+0.25.^(6-Ysim(1,k));
 
         % Intensity
         Yplot(2,k+1) = y_m(2);
@@ -230,21 +234,13 @@ for k = 1:Nsim
         end
         
         % Live plotting
-        subplot(2,1,1)
         hold on
-        plot(Yplot(1,1:k), 'r')
-        plot(Sdes(1,1:k)+Tss, 'k-')
-        plot([0,k],[x_max(1)+Tss,x_max(1)+Tss], 'k--')
-        ylim([25, 50])
+        plot(CEMcurr(1,1:k), 'r')
+        plot(Sdes(1,1:k), 'k-')
+        ylim([0, 1.2*max(Sdes(1,1:k))])
         xlabel('Time Step')
-        ylabel('Temperature/oC')
+        ylabel('CEM/min')
         
-        subplot(2,1,2)
-        hold on
-        plot(Yplot(2,1:k), 'r')
-        plot((Sdes(2,1:k)+Iss)*10, 'k-')
-        plot([0,k],([x_max(2),x_max(2)]+Iss)*10, 'k--')
-        ylim([0, 255])
     end
 
 
@@ -260,6 +256,7 @@ if runExperiments==1
 end
 
 %%
+
 % Plot results
 
 % Plot phase plot
@@ -271,23 +268,24 @@ set(gcf,'color','w');
 set(gca,'FontSize',16)
 axis([-10, 10, -20, 25])
 
+
 % Plot output
 figure; hold on;
 time = 0:Nsim;
-subplot(2,1,1)
 hold on
 stairs(time,Sdes(1,:),'k')
-plot(time,Ysim(1,:),'r')
-plot([0,Nsim],[x_max(1),x_max(1)],'--r')
-ylim([-8, 8])
+plot(time,CEMcurr,'r')
+ylim([0, 1.2*max(Sdes(1,:))])
+xlabel('Time Step')
+ylabel('CEM/min')
 set(gcf,'color','w');
 set(gca,'FontSize',12)
 
-subplot(2,1,2)
-hold on
-stairs(time,Sdes(2,:),'k')
-plot(time,Ysim(2,:),'r')
-plot([0,Nsim],[x_max(2),x_max(2)],'--r')
-set(gcf,'color','w');
-set(gca,'FontSize',12)
+% subplot(2,1,2)
+% hold on
+% stairs(time,Sdes(2,:),'k')
+% plot(time,Ysim(2,:),'r')
+% plot([0,Nsim],[x_max(2),x_max(2)],'--r')
+% set(gcf,'color','w');
+% set(gca,'FontSize',12)
 
