@@ -1,3 +1,4 @@
+close all
 %
 %   This script uses results from main_dnn.m to run a controller which
 %   substitutes the OCP with a DNN. Relevant variables from main_dnn.m are
@@ -12,6 +13,18 @@
 % <13:34; 13:36; 13:43 [2;-2]
 % <14:10;<14:25; <14:30; 14:34 [2;3]
 
+% <15:08; <15:10; <15:33
+% <15:15; <15:19 <15:23; <15:28
+
+% <13:39
+% <13:37; 13:41
+
+% 13:56; 14:01; 14:06
+% 13:55; 13:57; 14:03
+
+%16:10
+%16:09 16:12
+
 % Re-visit model --> collect data
 % Reduce sampling time? --> is this going to affect data collection?
 
@@ -22,33 +35,34 @@ clear all
 load('Supporting-Data-Files/DNN_training.mat');
 model_ID=load('Supporting-Data-Files/MIMOmodelGlass.mat');
 Tss = model_ID.steadyStates(1);
-Iss = model_ID.steadyStates(2);
-Pss = model_ID.steadyStates(3);
-Qss = model_ID.steadyStates(4);
+Iss = round(model_ID.steadyStates(2),1);
+Pss = round(model_ID.steadyStates(3),1);
+Qss = round(model_ID.steadyStates(4),1);
 
-%% User-defined inputs
+%User-defined inputs
 
 % Experiments or simulations
-runExperiments = 0;
+runExperiments = 1;
 
 % Switch for projection to a safe set
-useProj = 0;
+useProj = 1;
 
 % Number of simulations/time-steps
-Nsim = 100;
+Nsim = 40;
 
 % Define reference
 % tChange = 10;
 % Sdes = [[0;0].*ones(nx, tChange), [5.5;-2].*ones(nx, Nsim+1-tChange)];
 % Sdes = [[-1;0].*ones(nx, tChange), [2;2.8].*ones(nx, Nsim+1-tChange)];
-Sdes = 1*ones(1, Nsim+1);
-
+Sdes = 1.5*ones(1, Nsim+1);
+KcemThreshold = 35;
+Kcem = 0.5;
 
 %% Project into maximal robust control invariant set
-
-% Bounds on w (not needed here)
-w_upper = [1.1; 0]'; % try robustifying one at a time if too conservative and you know where you are going to operate
-w_lower = [0; 0]';
+if useProj==1
+% Bounds on w
+w_upper = [2.5; 0]'; %2.5 try robustifying one at a time if too conservative and you know where you are going to operate
+w_lower = -[0; 0]';
 W = Polyhedron('lb',w_lower','ub',w_upper');
 
 % Calculate robust control invariant set
@@ -75,7 +89,7 @@ constraints = [constraints, U.A*uproject <= U.b];
 objective = objective + (uexplicit - uproject)'*(uexplicit - uproject);
 
 % Add constraints on the explicit variable to bound the size of the mp map
-constraints = [constraints, -2*(u_max-u_min)' + u_min' <= uexplicit <= u_max' + 2*(u_max-u_min)'];
+constraints = [constraints, -100*(u_max-u_min)' + u_min' <= uexplicit <= u_max' + 100*(u_max-u_min)'];
 constraints = [constraints, Cinf.A*xcurrent <= Cinf.b];
 
 % Create optimizer object
@@ -84,7 +98,7 @@ explicit_controller = optimizer(constraints,objective,ops,[xcurrent;uexplicit],[
 
 % Calculate the explicit solution using yalmip
 [mptsol,diagn,Z,Valuefcn,Optimizer] = solvemp(constraints,objective ,ops,[xcurrent;uexplicit],[uproject]);
-
+end
 
 
 %% Perform simulations/experiments to check results
@@ -155,12 +169,19 @@ for k = 1:Nsim
         Usim(:,k) = uexp;
     end
 
-    if isnan(Usim(:,k))==[1;1]
-        warning('NaN in Usim. Assigning previous value...');
+    if any(isnan(Usim(:,k)))==1
+        disp('-----------------------------------------');
+        disp('NaN in Usim. Assigning nominal value...');
+        disp('-----------------------------------------');
 
-        Usim(:,k) = [0;-1];
-        What(:,k) = Wsim(:,k-1);
-        Ysim(:,k) = Ysim(:,k-1);
+        Usim(:,k) = [4;-1];
+        if k==1
+            What(:,k) = [0;0];
+            Ysim(:,k) = [0;0];
+        else
+            What(:,k) = Wsim(:,k-1);
+            Ysim(:,k) = Ysim(:,k-1);
+        end
         Xsim(:,k) = Ysim(:,k);
         
     end
@@ -176,20 +197,27 @@ for k = 1:Nsim
         % provide values to plant
         Xsim(:,k+1) = A*Xsim(:,k) + B*Usim(:,k) + Wsim(:,k);
         Ysim(:,k+1) = C*Xsim(:,k+1);
-        CEMcurr(k+1) = CEMcurr(k)+0.25.^(6-Ysim(1,k));
+        
+        if Ysim(1,k)+Tss<= KcemThreshold
+            CEMcurr(k+1) = CEMcurr(k);
+        else
+            CEMcurr(k+1) = CEMcurr(k)+Kcem.^(6-Ysim(1,k+1));
+        end
         
     else
         % Send optimal input to the set-up
         Usend = [Usim(1,k)+Qss;Usim(2,k)+Pss];
-        Usend=[Usend(:)', Sdes(1,k)+Tss,(Sdes(2,k)+Iss)*10.0];
+        Usend=[Usend(:)', Sdes(1,k)+Tss,0];
         Usend = sprintf('%.1f,', Usend(:));
         Usend = Usend(1:end-1);
-        disp('Sending inputs...') 
+        disp('Sending inputs...')
+        
         pause(0.3)
+        
         fwrite(t, Usend)
         disp(['Sent inputs (q,P,Tss, Iss) = ','[', Usend, ']'])
         
-        pause(0.9)
+        pause(1.0)
         
         % Receive measurement
         disp('Receive Measurement...')
@@ -215,7 +243,11 @@ for k = 1:Nsim
         % Temperature
         Yplot(1,k+1) = y_m(1);
         Ysim(1,k+1) = y_m(1)-Tss;
-        CEMcurr(k+1) = CEMcurr(k)+0.25.^(6-Ysim(1,k));
+        if Yplot(1,k+1)<= KcemThreshold
+            CEMcurr(k+1) = CEMcurr(k);
+        else
+            CEMcurr(k+1) = CEMcurr(k)+Kcem.^(43-Yplot(1,k+1));
+        end
 
         % Intensity
         Yplot(2,k+1) = y_m(2);
@@ -234,12 +266,18 @@ for k = 1:Nsim
         end
         
         % Live plotting
+        subplot(2,1,1)
         hold on
         plot(CEMcurr(1,1:k), 'r')
         plot(Sdes(1,1:k), 'k-')
-        ylim([0, 1.2*max(Sdes(1,1:k))])
+        ylim([0, 1.2*max([Sdes(1), max(CEMcurr(1,1:k))])])
         xlabel('Time Step')
         ylabel('CEM/min')
+        subplot(2,1,2)
+        hold on
+        plot(Yplot(1,1:k), 'r')
+        plot([0, k], [x_max(1)+Tss, x_max(1)+Tss], 'k--')
+        ylim([KcemThreshold-1, x_max(1)+1+Tss])
         
     end
 
@@ -275,17 +313,29 @@ time = 0:Nsim;
 hold on
 stairs(time,Sdes(1,:),'k')
 plot(time,CEMcurr,'r')
-ylim([0, 1.2*max(Sdes(1,:))])
+ylim([0, 2*max(Sdes(1,:))])
 xlabel('Time Step')
 ylabel('CEM/min')
 set(gcf,'color','w');
 set(gca,'FontSize',12)
 
-% subplot(2,1,2)
-% hold on
-% stairs(time,Sdes(2,:),'k')
-% plot(time,Ysim(2,:),'r')
-% plot([0,Nsim],[x_max(2),x_max(2)],'--r')
-% set(gcf,'color','w');
-% set(gca,'FontSize',12)
+figure;
+subplot(2,1,1)
+hold on
+plot(Ysim(1,:)+Tss, 'r')
+plot([0,Nsim],[x_max(1),x_max(1)]+Tss,'--k')
+plot([0,Nsim],[x_min(1),x_min(1)]+Tss,'--k')
+set(gcf,'color','w')
+set(gca,'FontSize',12)
+xlabel('Time Step')
+ylabel('Temperature/ ^{\circ}C')
+
+subplot(2,1,2)
+hold on
+plot(10*Ysim(2,:)+Iss,'r')
+plot([0,Nsim],10*[x_max(2),x_max(2)]+Iss,'--k')
+set(gcf,'color','w')
+set(gca,'FontSize',12)
+xlabel('Time Step')
+ylabel('Intensity/ a.u')
 

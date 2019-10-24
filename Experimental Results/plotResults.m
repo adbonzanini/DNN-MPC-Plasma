@@ -7,167 +7,143 @@
 clear all
 
 directory = pwd;
-comparison = 0;
 
-%% Load files
-fnameProj = ['PI_Server_Out_2019-10-17_161504.889852-explicit2';
-             'PI_Server_Out_2019-10-17_162329.360513-explicit2';
-             'PI_Server_Out_2019-10-17_163158.799811-explicit2'];
-
-
-if comparison==1
-    fnameNoProj= ['PI_Server_Out_2019-10-17_161915.729781-explicit2';
-                  'PI_Server_Out_2019-10-17_162743.399614-explicit2';
-                  'PI_Server_Out_2019-10-17_163613.639705-explicit2'];
-else
-    fnameNoProj= ['PI_Server_Out_2019-10-19_140654.739916-explicit3';
-                  'PI_Server_Out_2019-10-19_141825.013536-explicit3';
-                  'PI_Server_Out_2019-10-19_143444.728697-explicit3'];
-end
-
-% Initialize
-dataWithProjection = cell(3,1);
-dataNoProjection = cell(3,1);
-N = zeros(3,1);
-for j = 1:3
-    dataWithProjection{j} = csvread(fnameProj(j,:),1,0);
-    dataNoProjection{j} = csvread(fnameNoProj(j,:),1,0);
-    N(j) = min(size(dataWithProjection{j},1), size(dataNoProjection{j},1));
-end
-N = min(N);
-
-
-%% Column legend for reference
-%{
-(1) time,(2) Tset,(3) Ts,(4) Ts2,(5) Ts3, (6) P, (7) Imax, (8) Ip2p, 
-(9) O777, (10) O845, (11) N391, (12) He706, (13) sum_int, 
-(14, 15, 16, 17) *U_m --> (V, freq, q, dsep), (18) q_o, (19) D_c, (20) x_pos, 
-(21) y_pos, (22) T_emb, (23) Pset, (24) P_emb, (25) Prms, 
-(26) Rdel, (27) Is, (28, 29) sig --> (1 and 2), (30) subs_type, (31) Trot, 
-(32) tm_el
-%}
-
-% Eliminate small differences in length of datasets
-for j=1:3
-    dataWithProjection{j} = dataWithProjection{j}(1:N,:);
-    dataNoProjection{j} = dataNoProjection{j}(1:N,:);
-end
-
-%% Extract relevant data
-varP = cell(4,1);
-varNP = cell(4,1);
-count = 1;
-for j =[3, 27, 16, 23]
-    varP{count} = mean([dataWithProjection{1}(:,j), dataWithProjection{2}(:,j), dataWithProjection{3}(:,j)],2);
-    varNP{count} = mean([dataNoProjection{1}(:,j), dataNoProjection{2}(:,j), dataNoProjection{3}(:,j)],2);
-    count = count+1;
-end
-% Temperature
-Tp = varP{1};
-Tnp = varNP{1};
-
-% Intensity
-Ip = varP{2};
-Inp = varNP{2};
-
-% He Flow
-qp = varP{3};
-qnp = varNP{3};
-
-% Power
-Pp = varP{4};
-Pnp = varNP{4};
+% extract file names
+files = dir(directory);
 
 %% Constraints
 cd ../Supporting-Data-Files
 load('DNN_training.mat');
 model_ID=load('MIMOmodelGlass.mat');
 cd(directory)
+steadyStates = round(model_ID.steadyStates, 1);
+Tss = steadyStates(1); Iss = steadyStates(2); qss = steadyStates(3); Pss = steadyStates(4); 
+% u_max = [10,11]-[qss,Pss];
+% u_min = [0.5, 1]-[qss,Pss];
+
+%% Load files
+% Keep only PI_Server[...] files
+idx=[];
+for j=1:length(files)
+    try
+        if files(j).name(1:5)=='PI_Se'
+            idx=[idx;j];
+        end
+    catch
+    end
+end
+files=files(idx, :);
+Nfiles = length(files);
 
 
-%% Desired Reference
-tChange = 80;
-if comparison==1
-Sdes = [zeros(nx, tChange), [5.5;2].*ones(nx, N-tChange)];
-else
-% Sdes = [[-1;0].*ones(nx, tChange), [2;-2].*ones(nx, N-tChange)];
-Sdes = [[-1;0].*ones(nx, tChange), [2.15;3].*ones(nx, N-tChange)];
+data = cell(Nfiles,1);
+T = cell(Nfiles,1);I = cell(Nfiles,1);q = cell(Nfiles,1);P = cell(Nfiles,1);
+N = zeros(Nfiles,1);
+
+for j = [2,4,6]-1
+    data{j} = csvread(files(j).name,1,0);
+    data{j} = data{j}(1:35,:);
+    N = size(data{j}, 1);
+    
+    
+    % Column legend for reference
+    %{
+    (1) time,(2) Tset,(3) Ts,(4) Ts2,(5) Ts3, (6) P, (7) Imax, (8) Ip2p, 
+    (9) O777, (10) O845, (11) N391, (12) He706, (13) sum_int, 
+    (14, 15, 16, 17) *U_m --> (V, freq, q, dsep), (18) q_o, (19) D_c, (20) x_pos, 
+    (21) y_pos, (22) T_emb, (23) Pset, (24) P_emb, (25) Prms, 
+    (26) Rdel, (27) Is, (28, 29) sig --> (1 and 2), (30) subs_type, (31) Trot, 
+    (32) tm_el
+    %}
+    varIdx = [3, 27, 16, 23]; %[T, I, q, P]
+    variables = data{j}(:,varIdx);
+    T{j} = variables(:,1); I{j} = variables(:,2); q{j} = variables(:,3); P{j} = variables(:,4);
+    
+    
+    %% Other parameters
+    Tsampling = 1.3;
+    tPlot = 1:Tsampling:N*Tsampling;
+    %% Desired CEM Reference
+    Sdes = 1.5*ones(1,N);
+
+
+    % Calculate CEM
+    CEM = zeros(1, N);
+    for k=1:N-1
+        if T{j}(k)<35
+            CEM(k+1) = CEM(k);
+        else
+            CEM(k+1) = CEM(k)+0.5.^(43-T{j}(k));
+        end
+    end
+
+
+
+
+
+    %% Plot states
+    figure(1)
+    hold on
+    h1 = plot(tPlot, CEM, 'Linewidth', 2);
+    h2 = plot(tPlot, Sdes, 'k', 'Linewidth', 1);
+    xlabel('Time/ s')
+    ylabel('CEM/ min')
+    xlim([tPlot(1), tPlot(end)])
+    legend([h2], 'CEM setpoint', 'Location', 'southeast')
+    set(gca,'FontSize',15)
+    ylim([0, 3])
+    
+    figure(2)
+    subplot(2,1,1)
+    hold on
+    h1 = plot(tPlot, T{j}, 'Linewidth', 2);
+    h2 = plot([tPlot(1), tPlot(end)], [x_max(1), x_max(1)]+Tss, 'k--');
+    h3 = plot([tPlot(1), tPlot(end)], [x_min(1), x_min(1)]+Tss, 'k--');
+    xlabel('Time/s')
+    ylabel('T/ ^{\circ}C')
+    xlim([tPlot(1), tPlot(end)])
+    legend([h2], 'Constraints', 'Location', 'southwest')
+    set(gca,'FontSize',15)
+    
+    figure(2)
+    subplot(2,1,2)
+    hold on
+    h1 = plot(tPlot, I{j}, 'Linewidth', 2);
+    h2 = plot([tPlot(1), tPlot(end)], 10*([x_max(2), x_max(2)]+Iss), 'k--');
+    h3 = plot([tPlot(1), tPlot(end)], 10*([x_min(2), x_min(2)]+Iss), 'k--');
+    xlabel('Time/s')
+    ylabel('Intensity/ a.u.')
+    xlim([tPlot(1), tPlot(end)])
+    legend([h2], 'Constraints', 'Location', 'northwest')
+    set(gca,'FontSize',15)
+    
+    figure(3)
+    subplot(2,1,1)
+    hold on
+    h1 = plot(tPlot, q{j}, 'Linewidth', 2);
+%     h2 = plot([tPlot(1), tPlot(end)], [u_max(1), u_max(1)]+qss, 'k--');
+%     h3 = plot([tPlot(1), tPlot(end)], [u_min(1), u_min(1)]+qss, 'k--');
+    xlabel('Time/s')
+    ylabel('He Flowrate/ slm')
+    xlim([tPlot(1), tPlot(end)])
+%     legend([h2], 'Constraints', 'Location', 'southeast')
+    set(gca,'FontSize',15)
+    
+    figure(3)
+    subplot(2,1,2)
+    hold on
+    h1 = plot(tPlot, P{j}, 'Linewidth', 2);
+%     h2 = plot([tPlot(1), tPlot(end)], [u_max(2), u_max(2)]+Pss, 'k--');
+%     h3 = plot([tPlot(1), tPlot(end)], [u_min(2), u_min(2)]+Pss, 'k--');
+    xlabel('Time/s')
+    ylabel('Applied Power/ W')
+    xlim([tPlot(1), tPlot(end)])
+%     legend([h2], 'Constraints', 'Location', 'northwest')
+    set(gca,'FontSize',15)
 end
 
 
-%% Other parameters
-Tsampling = 1.3;
-tPlot = 1:Tsampling:N*Tsampling;
-
-%% Plot states
-figure(1)
-subplot(2,1,1)
-hold on
-h2 = plot(tPlot, Tnp, 'r', 'Linewidth', 2);
-h3 = stairs(tPlot, Sdes(1,:)+model_ID.steadyStates(1), 'k', 'Linewidth', 1);
-h4 = plot([tPlot(1), tPlot(end)], [x_max(1), x_max(1)]+model_ID.steadyStates(1), 'k--');
-h5 = plot([tPlot(1), tPlot(end)], [x_min(1), x_min(1)]+model_ID.steadyStates(1), 'k--');
-if comparison==1
-h1 = plot(tPlot, Tp, 'b', 'Linewidth', 2);
-legend([h1, h2, h3, h4], 'With Projection', 'Without Projection', 'Setpoint', 'Constraints', 'Location', 'southeast')
-else
-legend([h2, h3, h4], 'Trajectory', 'Setpoint', 'Constraints', 'Location', 'northwest')
-end
-ylim([28, 48])
-xlabel('Time/s')
-ylabel('Temperature/ ^{\circ}C')
-set(gca,'FontSize',15)
-
-subplot(2,1,2)
-hold on
-h2 = plot(tPlot, Inp, 'r', 'Linewidth', 2);
-h3 = stairs(tPlot, 10*(Sdes(2,:)+model_ID.steadyStates(2)), 'k', 'Linewidth', 1);
-h4 = plot([tPlot(1), tPlot(end)], 10*([x_max(2), x_max(2)]+model_ID.steadyStates(2)), 'k--');
-h5 = plot([tPlot(1), tPlot(end)], 10*([x_min(2), x_min(2)]+model_ID.steadyStates(2)), 'k--');
-if comparison==1
-h1 = plot(tPlot, Ip, 'b', 'Linewidth', 2);
-legend([h1, h2, h3, h4], 'With Projection', 'Without Projection', 'Setpoint', 'Constraints', 'Location', 'northwest')
-else
-legend([h2, h3, h4], 'Trajectory', 'Setpoint', 'Constraints', 'Location', 'northwest')
-end
-ylim([0, 200])
-xlabel('Time/s')
-ylabel('Intensity/ a.u.')
-set(gca,'FontSize',15)
 
 
-
-%% Plot inputs
-figure(2)
-subplot(2,1,1)
-hold on
-h2 = plot(tPlot, qnp, 'r', 'Linewidth', 2);
-h4 = plot([tPlot(1), tPlot(end)], [u_max(1), u_max(1)]+model_ID.steadyStates(3), 'k--');
-h5 = plot([tPlot(1), tPlot(end)], [u_min(1), u_min(1)]+model_ID.steadyStates(3), 'k--');
-if comparison==1
-h1 = plot(tPlot, qp, 'b', 'Linewidth', 2);
-legend([h1, h2, h4], 'With Projection', 'Without Projection', 'Constraints', 'Location', 'northwest')
-else
-legend([h2, h4], 'Trajectory', 'Constraints', 'Location', 'northwest')
-end
-xlabel('Time/s')
-ylabel('He Flowrate/ slm')
-set(gca,'FontSize',15)
-
-
-subplot(2,1,2)
-hold on
-h2 = plot(tPlot, Pnp, 'r', 'Linewidth', 2);
-h4 = plot([tPlot(1), tPlot(end)], [u_max(2), u_max(2)]+model_ID.steadyStates(4), 'k--');
-h5 = plot([tPlot(1), tPlot(end)], [u_min(2), u_min(2)]+model_ID.steadyStates(4), 'k--');
-if comparison==1
-h1 = plot(tPlot, Pp, 'b', 'Linewidth', 2);
-legend([h1, h2, h4], 'With Projection', 'Without Projection', 'Constraints', 'Location', 'southeast')
-else
-legend([h2, h4], 'Trajectory', 'Constraints', 'Location', 'northwest')
-end
-xlabel('Time/s')
-ylabel('Applied Power/ W')
-set(gca,'FontSize',15)
 
 

@@ -1,4 +1,4 @@
-function [solver, args, f] = getNMPCSolver(Ts, N, x_init, x_min, x_max, u_init, u_min, u_max, CEM_init, CEM_min, CEM_max)
+function [solver, args, f] = getNMPCSolver(Ts, N, x_init, x_min, x_max, u_init, u_min, u_max, CEM_init, CEM_min, CEM_max, CEMsp)
 
 % Import casadi
 import casadi.*
@@ -19,7 +19,7 @@ x = SX.sym('x', nx);
 u = SX.sym('u', nu);
 
 %Model Parameters
-Kcem = 0.25;
+Kcem = 0.5;
 
 
 % Model equations
@@ -34,9 +34,10 @@ h = Function('h', {x}, {CEM});
 ny = length(CEM);
 
 % Stage cost function (deviation variables)
-R = 0;
-CEMtarget = 1;
-l = Kcem.^(43-x(1)-37) + u'*R*u;
+R = 0*eye(2);
+CEMtarget = CEMsp;
+
+l = Kcem.^(43-x(1)-37);% + u'*R*u;
 % l = 1*x(1)^2 + 1/100*x(2)^2 + 1/10*u(1)^2;
 L = Function('L', {x,u}, {l});
 
@@ -54,6 +55,7 @@ w0 = [];
 lbw = [];
 ubw = [];
 J = 0;
+Jcon=0;
 g = {};
 lbg = [];
 ubg = [];
@@ -68,8 +70,8 @@ w0 = [w0, x_init];
 % Add NLP variables to represent the steady state
 CEMcurr = MX.sym('CEMcurr', ny);
 w = [w, {CEMcurr}];
-lbw = [lbw, CEM_min];
-ubw = [ubw, CEM_max];
+lbw = [lbw, CEM_init];
+ubw = [ubw, CEM_init];
 w0 = [w0, CEM_init];
 
 %{
@@ -106,7 +108,14 @@ for k = 0:N-1
     w0 = [w0, u_init];
 
     % Integrate till the end of the interval
-    Xk_end = f(Xk, Uk);
+    offset = [0;0]; % Manually add an offset if there is a systematic error. Leave it at zero otherwise.
+    Xk_end = f(Xk, Uk)+offset;
+    
+%     % Add inequality constraint
+%     g = [g, {(Xk_end-Xk)'*[1,0;0,0]*(Xk_end-Xk)}];
+%     lbg = [lbg, -inf];
+%     ubg = [ubg, 0.5];
+   
     
     % New NLP variable for state at end of interval
     Xk = MX.sym(['X_' num2str(k+1)], nx);
@@ -115,22 +124,36 @@ for k = 0:N-1
     ubw = [ubw, x_max];
     w0 = [w0, x_init];
 
+    % Add contribution of stage cost to objective
+    J = J + L(Xk,Uk);
+    Jcon = Jcon + L(Xk, Uk);
+    
     % Add equality constraint
     g = [g, {Xk_end-Xk}];
     lbg = [lbg, zeros(1,nx)];
     ubg = [ubg, zeros(1,nx)];
+   
     
-    % Add contribution of stage cost to objective
-    J = J + L(Xk,Uk);
+    
 end
 
 % Add terminal and offset cost to objective
 % J = J + M(Xk-Xss) + VO(Yss-CEMtarget);
+% J = (J+CEMcurr).^2;
+Jcon = Jcon+CEMcurr;
 J = (J+CEMcurr-CEMtarget).^2;
 
 
-% Add terminal equality constraint
+% Add terminal inequality constraint
+g=[g,{Jcon}];
+lbg = [lbg, 0];
+ubg = [ubg, CEMtarget];
 %{
+% Add terminal equality constraint
+g=[g,{J-CEMtarget}];
+lbg = [lbg, -0.05];
+ubg = [ubg, 0.05];
+
 g = [g, {Xk-Xss}];
 lbg = [lbg, zeros(1,nx)];
 ubg = [ubg, zeros(1,nx)];

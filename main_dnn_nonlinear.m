@@ -30,6 +30,9 @@ PN = 1*Q;
 directory = pwd;
 modelGlass = load([directory, '/Supporting-Data-Files/MIMOmodelGlass']);
 A = modelGlass.A; B=modelGlass.B; C=modelGlass.C; D=0;
+Tss = modelGlass.steadyStates(1);Iss = modelGlass.steadyStates(2);
+qss = modelGlass.steadyStates(3); Pss = modelGlass.steadyStates(4);
+
 
 % Sizes
 nx = size(A,2);
@@ -37,7 +40,7 @@ nu = size(B,2);
 ny = 1;
 
 % Horizon length
-N = 10;
+N = 5;
 
 % Infinite horizon LQR
 [K,Pinf,Eig] = dlqr(A,B,Q,R);
@@ -46,39 +49,38 @@ K = -K;                         % Matlab vs. literature conventions
 % Observer parameters
 Hs = (C+D*K)*inv(eye(nx)+(A+B*K));
 
-% Load constraints (loading robust constraints just as a placeholder. 
-% We will only use the first, i.e non-tightened, constraints of these)
-Constraints = load([directory,'/supporting-data-files/robustConstraintsWorstCase']);
 % State constraints
-Xcon = Constraints.Xtight{1};
+Xcon = [eye(2,3);-eye(2,3)];
+XlimReal = [41;250;33;0];
+Xcon(:,3) = [XlimReal(1)-Tss; XlimReal(2)*0.1-Iss;-(XlimReal(3)-Tss);-(XlimReal(4)*0.1-Iss)];
+
 % Input constraints
-Ucon = Constraints.Ucon;
-Ucon(:,3) = [7;1.5;2;2.5];
+Ucon = [1, 0, 0;-1, 0, 0;0, 1, 0;0, -1, 0];
+Ucon(:,3) = [7;1.2;2;2.5];
 
 % Terminal constraints
-Xf = Constraints.Xtight{1};
-Xcon(:,3) = [6;25;5;25]; % <-- check x_max!
-Ucon(2,3) = 1.2;
+Xf = Xcon;
 
 % Create constraints in MPT 
 X = Polyhedron('A',Xcon(:,1:2),'b',Xcon(:,3));
 U = Polyhedron('A',Ucon(:,1:2),'b',Ucon(:,3));
 
 % Marginals for states, inputs, and outputs
-x_min = [-5, -20];
-x_max = [6, 20];
+x_min = -[Xcon(3,3), Xcon(4,3)];
+x_max = [Xcon(1,3), Xcon(2,3)];
 x_init = [0,0];
-u_min = [-1.5, -2.5];
-u_max = [7, 2];
+u_min = -[Ucon(2,3), Ucon(4,3)];
+u_max = [Ucon(1,3), Ucon(3,3)];
 u_init = [0,0];
 % Current CEM bounds
 CEM_min = 0;
-CEM_max = 1;
+CEM_max = 2;
 CEM_init = 0;
+CEMsp = CEM_max-0.5;
 
 %%
 % Setup the mpc problem
-[solver, args, f] = getNMPCSolver(Ts, N, x_init, x_min, x_max, u_init, u_min, u_max, CEM_init, CEM_min, CEM_max);
+[solver, args, f] = getNMPCSolver(Ts, N, x_init, x_min, x_max, u_init, u_min, u_max, CEM_init, CEM_min, CEM_max, CEMsp);
 
 %%
 
@@ -169,7 +171,7 @@ myInput_P = uq_createInput(Input);
 %% Sample within the domain of attraction
 
 % Specify number of samples
-Nsamp = 2500;
+Nsamp = 1000;
 
 % Sample the state/reference space
 Psamp = uq_getSample(myInput_P, 10*Nsamp, 'MC');

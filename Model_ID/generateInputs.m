@@ -10,7 +10,8 @@ directory = '/users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC Paper/DN
 
 %Overall time period
 Toverall = 1000;
-disp(['Experiment Time = ', num2str(Toverall*1.3/60), ' min']) % in minutes
+Tsampling = 1.3;
+disp(['Experiment Time = ', num2str(Toverall*0.8/60), ' min']) % in minutes
 
 %Initial conditions (if we want to start it somewhere in particular)
 wi = 3;

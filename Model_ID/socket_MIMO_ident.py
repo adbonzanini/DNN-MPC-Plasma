@@ -9,8 +9,8 @@ import os
 
 
 # Folders and files
-directory = '/Users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC Paper/DNN-MPC-Plasma/supporting-data-files/'
-fname = '20191016_141001inputTrajectories.mat'
+directory = '/Users/adbonzanini/Box Sync/Berkeley/Research/Explicit MPC Paper/DNN-MPC-Plasma/Model_ID'
+fname = '/20191023_150532inputTrajectories.mat'
 
 # Define time stamp to distinguish saved files
 # TimeStamp = datetime.now().strftime('%Y-%m-%d-%Hh%Mm%Ss')

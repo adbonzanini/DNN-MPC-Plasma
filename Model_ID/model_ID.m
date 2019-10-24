@@ -15,12 +15,13 @@ Dy1ss = 0;
 overwriteData =1;
 
 % Sampling time
-Tsampling = 1.3;
+Tsampling = 0.8;
 
 %Ignore the headers (i.e. start from row 1, column 0)
 
 if glass ==1 && metal==0
-    dataFile = 'PI_Server_Out_2019-10-16_141348.846364-modelID';
+     dataFile = 'PI_Server_Out_2019-10-16_141348.846364-modelID';
+%      dataFile = 'PI_Server_Out_2019-10-23_151115.003415-model_ID2';
 elseif metal ==1 && glass==0
     dataFile = [directory, '/'];
 else
