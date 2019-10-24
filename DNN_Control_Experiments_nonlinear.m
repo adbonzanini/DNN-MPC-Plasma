@@ -13,7 +13,7 @@ close all
 % <13:34; 13:36; 13:43 [2;-2]
 % <14:10;<14:25; <14:30; 14:34 [2;3]
 
-% <15:08; <15:10; <15:33
+% <15:08; <15:10; <15:33 
 % <15:15; <15:19 <15:23; <15:28
 
 % <13:39
@@ -24,6 +24,8 @@ close all
 
 %16:10
 %16:09 16:12
+
+% 14:39; <14:41; 14:43 || 14:52; 14:53; 14:54
 
 % Re-visit model --> collect data
 % Reduce sampling time? --> is this going to affect data collection?
@@ -45,7 +47,7 @@ Qss = round(model_ID.steadyStates(4),1);
 runExperiments = 1;
 
 % Switch for projection to a safe set
-useProj = 1;
+useProj = 0;
 
 % Number of simulations/time-steps
 Nsim = 40;
@@ -61,7 +63,7 @@ Kcem = 0.5;
 %% Project into maximal robust control invariant set
 if useProj==1
 % Bounds on w
-w_upper = [2.5; 0]'; %2.5 try robustifying one at a time if too conservative and you know where you are going to operate
+w_upper = [2.5; 0]'; %2.5 (0.8sim) try robustifying one at a time if too conservative and you know where you are going to operate
 w_lower = -[0; 0]';
 W = Polyhedron('lb',w_lower','ub',w_upper');
 
@@ -195,7 +197,9 @@ for k = 1:Nsim
         Wsim(:,k) = [0;0];
         
         % provide values to plant
-        Xsim(:,k+1) = A*Xsim(:,k) + B*Usim(:,k) + Wsim(:,k);
+        Areal =1.2*A;
+        Breal = 1.3*B;
+        Xsim(:,k+1) = Areal*Xsim(:,k) + Breal*Usim(:,k) + Wsim(:,k);
         Ysim(:,k+1) = C*Xsim(:,k+1);
         
         if Ysim(1,k)+Tss<= KcemThreshold
@@ -333,7 +337,7 @@ ylabel('Temperature/ ^{\circ}C')
 subplot(2,1,2)
 hold on
 plot(10*Ysim(2,:)+Iss,'r')
-plot([0,Nsim],10*[x_max(2),x_max(2)]+Iss,'--k')
+plot([0,Nsim],10*([x_max(2),x_max(2)]+Iss),'--k')
 set(gcf,'color','w')
 set(gca,'FontSize',12)
 xlabel('Time Step')

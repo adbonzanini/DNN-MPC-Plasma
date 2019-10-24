@@ -40,7 +40,7 @@ data = cell(Nfiles,1);
 T = cell(Nfiles,1);I = cell(Nfiles,1);q = cell(Nfiles,1);P = cell(Nfiles,1);
 N = zeros(Nfiles,1);
 
-for j = [2,4,6]-1
+for j = [1, 3, 5]
     data{j} = csvread(files(j).name,1,0);
     data{j} = data{j}(1:35,:);
     N = size(data{j}, 1);
@@ -91,7 +91,7 @@ for j = [2,4,6]-1
     xlim([tPlot(1), tPlot(end)])
     legend([h2], 'CEM setpoint', 'Location', 'southeast')
     set(gca,'FontSize',15)
-    ylim([0, 3])
+    ylim([0, 4.5])
     
     figure(2)
     subplot(2,1,1)

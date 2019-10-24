@@ -49,6 +49,7 @@ K = -K;                         % Matlab vs. literature conventions
 % Observer parameters
 Hs = (C+D*K)*inv(eye(nx)+(A+B*K));
 
+
 % State constraints
 Xcon = [eye(2,3);-eye(2,3)];
 XlimReal = [41;250;33;0];
@@ -171,7 +172,7 @@ myInput_P = uq_createInput(Input);
 %% Sample within the domain of attraction
 
 % Specify number of samples
-Nsamp = 1000;
+Nsamp = 2500;
 
 % Sample the state/reference space
 Psamp = uq_getSample(myInput_P, 10*Nsamp, 'MC');
