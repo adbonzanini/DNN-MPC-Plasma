@@ -1,4 +1,4 @@
-close all
+
 %
 %   This script uses results from main_dnn.m to run a controller which
 %   substitutes the OCP with a DNN. Relevant variables from main_dnn.m are
@@ -44,26 +44,35 @@ Qss = round(model_ID.steadyStates(4),1);
 %User-defined inputs
 
 % Experiments or simulations
-runExperiments = 1;
+runExperiments = 0;
 
 % Switch for projection to a safe set
 useProj = 0;
+
 
 % Number of simulations/time-steps
 Nsim = 40;
 
 % Define reference
-% tChange = 10;
-% Sdes = [[0;0].*ones(nx, tChange), [5.5;-2].*ones(nx, Nsim+1-tChange)];
-% Sdes = [[-1;0].*ones(nx, tChange), [2;2.8].*ones(nx, Nsim+1-tChange)];
 Sdes = 1.5*ones(1, Nsim+1);
 KcemThreshold = 35;
 Kcem = 0.5;
 
+% Stylistic choices depending on case
+if runExperiments==1
+    close all
+end
+
+if useProj==0
+    color='r';
+elseif useProj==1
+    color = 'b';
+end
+
 %% Project into maximal robust control invariant set
 if useProj==1
 % Bounds on w
-w_upper = [2.5; 0]'; %2.5 (0.8sim) try robustifying one at a time if too conservative and you know where you are going to operate
+w_upper = [0.5; 0]'; %2.5 (0.8sim) try robustifying one at a time if too conservative and you know where you are going to operate
 w_lower = -[0; 0]';
 W = Polyhedron('lb',w_lower','ub',w_upper');
 
@@ -197,8 +206,8 @@ for k = 1:Nsim
         Wsim(:,k) = [0;0];
         
         % provide values to plant
-        Areal =1.2*A;
-        Breal = 1.3*B;
+        Areal =1.3*A;
+        Breal = 1.5*B;
         Xsim(:,k+1) = Areal*Xsim(:,k) + Breal*Usim(:,k) + Wsim(:,k);
         Ysim(:,k+1) = C*Xsim(:,k+1);
         
@@ -297,10 +306,12 @@ if runExperiments==1
 %     fclose(t)
 end
 
-%%
+%% Plot results
 
-% Plot results
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PLOT ALL TRAJECTORIES ON SEPARATE GRAPHS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%{
 % Plot phase plot
 figure; hold on
 X.plot('wire',1,'edgecolor','r','linestyle','--','linewidth',2)
@@ -309,37 +320,66 @@ ylim([-5, 10])
 set(gcf,'color','w');
 set(gca,'FontSize',16)
 axis([-10, 10, -20, 25])
+%}
 
-
-% Plot output
-figure; hold on;
+% Plot CEM
+figure(3); 
+hold on;
 time = 0:Nsim;
 hold on
 stairs(time,Sdes(1,:),'k')
-plot(time,CEMcurr,'r')
+plot(time,CEMcurr,color)
 ylim([0, 2*max(Sdes(1,:))])
 xlabel('Time Step')
 ylabel('CEM/min')
 set(gcf,'color','w');
 set(gca,'FontSize',12)
 
-figure;
+% Plot states
+figure(4);
 subplot(2,1,1)
 hold on
-plot(Ysim(1,:)+Tss, 'r')
-plot([0,Nsim],[x_max(1),x_max(1)]+Tss,'--k')
-plot([0,Nsim],[x_min(1),x_min(1)]+Tss,'--k')
+plot(time, Ysim(1,:)+Tss, color)
+plot([time(1),time(end)],[x_max(1),x_max(1)]+Tss,'--k')
+plot([time(1),time(end)],[x_min(1),x_min(1)]+Tss,'--k')
 set(gcf,'color','w')
 set(gca,'FontSize',12)
-xlabel('Time Step')
+xlabel('Time/ s')
 ylabel('Temperature/ ^{\circ}C')
+set(gca,'FontSize',12)
 
 subplot(2,1,2)
 hold on
-plot(10*Ysim(2,:)+Iss,'r')
-plot([0,Nsim],10*([x_max(2),x_max(2)]+Iss),'--k')
+plot(time, 10*(Ysim(2,:)+Iss),color)
+plot([time(1),time(end)],10*([x_max(2),x_max(2)]+Iss),'--k')
+plot([time(1),time(end)],10*([x_min(2),x_min(2)]+Iss),'--k')
 set(gcf,'color','w')
-set(gca,'FontSize',12)
-xlabel('Time Step')
+xlabel('Time/ s')
 ylabel('Intensity/ a.u')
+set(gca,'FontSize',12)
+
+% Plot inputs
+figure(5);
+subplot(2,1,1)
+hold on
+plot(Usim(1,:)+Qss, color)
+plot([time(1),time(end)],[10, 10],'--k')
+plot([time(1),time(end)], [0.5, 0.5],'--k')
+set(gcf,'color','w')
+xlabel('Time/ s')
+ylabel('He Flowrate/ slm')
+set(gca,'FontSize',12)
+
+subplot(2,1,2)
+hold on
+plot(Usim(2,:)+Pss,color)
+plot([time(1),time(end)], [5, 5],' --k')
+plot([time(1),time(end)],[1, 1], '--k')
+set(gcf,'color','w')
+xlabel('Time/ s')
+ylabel('Applied Power/ W')
+set(gca,'FontSize',12)
+
+
+
 

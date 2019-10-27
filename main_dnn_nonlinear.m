@@ -225,8 +225,8 @@ t = (target - repmat(tscale_min,[size(data,1),1]))./(repmat(tscale_max-tscale_mi
 t = t';
 
 % List of nodes and layers
-Nlayers_list = 3;
-Nnodes_list = 5;
+Nlayers_list = 5;%3:1:10;
+Nnodes_list = 5; %5:1:20;
 mse_tol = 1e-4;
 
 % Fit deep neural network for each hyperparameter
@@ -236,6 +236,7 @@ Memory_dnn_kb = zeros(length(Nlayers_list), length(Nnodes_list));
 index = 0;
 for i = 1:length(Nlayers_list)
     for j = 1:length(Nnodes_list)
+        fprintf('\n Training %d of %d ...', [length(Nnodes_list)*(i-1)+j, length(Nlayers_list)*length(Nnodes_list)])
         index = index + 1;
         net = feedforwardnet(Nnodes_list(j)*ones(1,Nlayers_list(i)), 'trainlm');
         for l = 1:Nlayers_list(i)
@@ -251,17 +252,21 @@ for i = 1:length(Nlayers_list)
         ninput = nx+ny;
         noutput = nu;
         Mdnn = (ninput+1)*M + (L-1)*(M+1)*M + (M+1)*noutput;
-        Memory_dnn_kb(i,j) = Mdnn*8/1e3;        
+        Memory_dnn_kb(i,j) = Mdnn*8/1e3;   
+        fprintf('Done!')
     end
 end
 
 
 % Save variables used later so that we can run the DNN-controller in a separate file
 save('Supporting-Data-Files/DNN_training.mat','net','xscale_min','xscale_max', 'tscale_min', 'tscale_max', ...
-    'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K')
+    'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K', 'mse_list')
+
+% save(['Supporting-Data-Files/MSE_Ns_', num2str(Nsamp), '.mat'], 'Nlayers_list', 'Nnodes_list', 'mse_list')
 
 
-return
+
+%% Simulations/experiments performed in a different script to avoid repeating the training every time
 %{
 %% Project into maximal robust control invariant set
 
