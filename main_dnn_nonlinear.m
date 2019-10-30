@@ -40,7 +40,7 @@ nu = size(B,2);
 ny = 1;
 
 % Horizon length
-N = 5;
+N = 10;
 
 % Infinite horizon LQR
 [K,Pinf,Eig] = dlqr(A,B,Q,R);
@@ -57,7 +57,7 @@ Xcon(:,3) = [XlimReal(1)-Tss; XlimReal(2)*0.1-Iss;-(XlimReal(3)-Tss);-(XlimReal(
 
 % Input constraints
 Ucon = [1, 0, 0;-1, 0, 0;0, 1, 0;0, -1, 0];
-Ucon(:,3) = [7;1.2;2;2.5];
+Ucon(:,3) = [7;1.2;3;1.5];
 
 % Terminal constraints
 Xf = Xcon;
@@ -172,7 +172,7 @@ myInput_P = uq_createInput(Input);
 %% Sample within the domain of attraction
 
 % Specify number of samples
-Nsamp = 2500;
+Nsamp = 5000;
 
 % Sample the state/reference space
 Psamp = uq_getSample(myInput_P, 10*Nsamp, 'MC');
@@ -181,6 +181,7 @@ Psamp = uq_getSample(myInput_P, 10*Nsamp, 'MC');
 index = DoA.contains(Psamp(:,1:nx)');
 data_rand = Psamp(index,:);
 data_rand = data_rand(1:Nsamp,:);
+
 
 %{
 % Solve tube mpc problem over samples
@@ -225,9 +226,9 @@ t = (target - repmat(tscale_min,[size(data,1),1]))./(repmat(tscale_max-tscale_mi
 t = t';
 
 % List of nodes and layers
-Nlayers_list = 5;%3:1:10;
-Nnodes_list = 5; %5:1:20;
-mse_tol = 1e-4;
+Nlayers_list = 5; %repmat([1, 3, 5], 1, 5);%3:1:10; 
+Nnodes_list = 20; %5:1:15;
+mse_tol = 1e-5;
 
 % Fit deep neural network for each hyperparameter
 net_list = cell(length(Nlayers_list),length(Nnodes_list));
@@ -260,9 +261,10 @@ end
 
 % Save variables used later so that we can run the DNN-controller in a separate file
 save('Supporting-Data-Files/DNN_training.mat','net','xscale_min','xscale_max', 'tscale_min', 'tscale_max', ...
-    'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K', 'mse_list')
+    'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K', 'mse_list', ...
+    'x_init', 'u_init', 'CEM_init', 'CEM_min', 'CEM_max', 'CEMsp', 'N', 'data_rand', 'target_rand')
 
-% save(['Supporting-Data-Files/MSE_Ns_', num2str(Nsamp), '.mat'], 'Nlayers_list', 'Nnodes_list', 'mse_list')
+save(['Supporting-Data-Files/MSE_Ns_', num2str(Nsamp), '.mat'], 'Nlayers_list', 'Nnodes_list', 'mse_list')
 
 
 

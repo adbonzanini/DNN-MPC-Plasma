@@ -47,7 +47,7 @@ Qss = round(model_ID.steadyStates(4),1);
 runExperiments = 0;
 
 % Switch for projection to a safe set
-useProj = 0;
+useProj = 1;
 
 
 % Number of simulations/time-steps
@@ -322,10 +322,12 @@ set(gca,'FontSize',16)
 axis([-10, 10, -20, 25])
 %}
 
+Tsampling=1.3;
+
 % Plot CEM
 figure(3); 
 hold on;
-time = 0:Nsim;
+time = 0:Tsampling:Nsim*Tsampling;
 hold on
 stairs(time,Sdes(1,:),'k')
 plot(time,CEMcurr,color)
