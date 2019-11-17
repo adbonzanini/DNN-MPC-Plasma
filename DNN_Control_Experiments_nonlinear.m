@@ -1,34 +1,7 @@
-
 %
 %   This script uses results from main_dnn.m to run a controller which
 %   substitutes the OCP with a DNN. Relevant variables from main_dnn.m are
 %   saved in the DNN_training.mat file.
-%
-
-% Two files before 14:48
-% Two files before 15:06
-% 5-->    <16:10; 16:11, 
-% 5.5 --> <16:17; 16:19; || 16:23; 16:27 || 16:32; 16:36 ||
-
-% <13:34; 13:36; 13:43 [2;-2]
-% <14:10;<14:25; <14:30; 14:34 [2;3]
-
-% <15:08; <15:10; <15:33 
-% <15:15; <15:19 <15:23; <15:28
-
-% <13:39
-% <13:37; 13:41
-
-% 13:56; 14:01; 14:06
-% 13:55; 13:57; 14:03
-
-%16:10
-%16:09 16:12
-
-% 14:39; <14:41; 14:43 || 14:52; 14:53; 14:54
-
-% Re-visit model --> collect data
-% Reduce sampling time? --> is this going to affect data collection?
 
 % Clear workspace
 clear all
@@ -330,58 +303,66 @@ hold on;
 time = 0:Tsampling:Nsim*Tsampling;
 hold on
 stairs(time,Sdes(1,:),'k')
-plot(time,CEMcurr,color)
-ylim([0, 2*max(Sdes(1,:))])
+plot(time,CEMcurr, '-o', 'color', color)
+ylim([0, 1.6])
 xlabel('Time Step')
 ylabel('CEM/min')
+title('(a)')
 set(gcf,'color','w');
+box on
 set(gca,'FontSize',12)
+
 
 % Plot states
 figure(4);
 subplot(2,1,1)
 hold on
-plot(time, Ysim(1,:)+Tss, color)
+plot(time, Ysim(1,:)+Tss, '-o', 'color', color)
 plot([time(1),time(end)],[x_max(1),x_max(1)]+Tss,'--k')
 plot([time(1),time(end)],[x_min(1),x_min(1)]+Tss,'--k')
 set(gcf,'color','w')
 set(gca,'FontSize',12)
 xlabel('Time/ s')
 ylabel('Temperature/ ^{\circ}C')
+title('(b)')
+box on
 set(gca,'FontSize',12)
 
 subplot(2,1,2)
 hold on
-plot(time, 10*(Ysim(2,:)+Iss),color)
+plot(time, 10*(Ysim(2,:)+Iss), '-o', 'color',color)
 plot([time(1),time(end)],10*([x_max(2),x_max(2)]+Iss),'--k')
 plot([time(1),time(end)],10*([x_min(2),x_min(2)]+Iss),'--k')
 set(gcf,'color','w')
 xlabel('Time/ s')
 ylabel('Intensity/ a.u')
+box on
 set(gca,'FontSize',12)
 
 % Plot inputs
 figure(5);
 subplot(2,1,1)
 hold on
-plot(Usim(1,:)+Qss, color)
+plot(Usim(1,:)+Qss, '-o', 'color', color)
 plot([time(1),time(end)],[10, 10],'--k')
 plot([time(1),time(end)], [0.5, 0.5],'--k')
 set(gcf,'color','w')
 xlabel('Time/ s')
 ylabel('He Flowrate/ slm')
+box on
 set(gca,'FontSize',12)
 
 subplot(2,1,2)
 hold on
-plot(Usim(2,:)+Pss,color)
+plot(Usim(2,:)+Pss,'-o', 'color', color)
 plot([time(1),time(end)], [5, 5],' --k')
 plot([time(1),time(end)],[1, 1], '--k')
 set(gcf,'color','w')
 xlabel('Time/ s')
 ylabel('Applied Power/ W')
+box on
 set(gca,'FontSize',12)
-
+%}
 
 
 

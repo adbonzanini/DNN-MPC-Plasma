@@ -8,9 +8,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % PLOT AVERAGE TRAJECTORIES ON THE SAME GRAPH
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fontSz = 15;
 cases = [1,2];
 plotWithinScript=0;
-color = {'r', 'b'};
+color = {'r', [0 0.4470 0.7410]};
+hC = cell(2,1);
+hT = cell(2,1);
+hQ = cell(2,1);
 
 figure(4)
 hold on
@@ -30,6 +34,8 @@ for ii=cases
     end
     
     plotResults;
+    
+    tPlot = [0, tPlot(1:end-1)]; %shift to start from zero
     
     % Take averages
     CEMavg = mean([CEMall{1}; CEMall{2}; CEMall{3}]);
@@ -57,13 +63,22 @@ for ii=cases
     % in practice)
     idx = find(CEMavg>=1.5);
 
-    CEMavg(idx) = CEMavg(idx(1));
+%    CEMavg(idx) = CEMavg(idx(1));
 %     Tavg(idx) = 35;
 %     Iavg(idx) = Iavg(idx(1));
 %     qavg(idx) = qavg(idx(1));
 %     Pavg(idx) = Pavg(idx(1));
     idx = idx(1);
 
+    % If the CEM exceeds the setpoint by a lot, interpolate
+    if CEM(idx)>1.6
+        CEMavg(idx) = (CEMavg(idx)+CEMavg(idx-1))/2;
+        Tavg(idx) = (Tavg(idx)+Tavg(idx-1))/2;
+        Iavg(idx) = (Iavg(idx)+Iavg(idx-1))/2;
+        qavg(idx) = (qavg(idx)+qavg(idx-1))/2;
+        Pavg(idx) = (Pavg(idx)+Pavg(idx-1))/2;
+        tPlot(idx) = (tPlot(idx)+tPlot(idx-1))/2;
+    end
     
 
     % Plot CEM
@@ -74,10 +89,10 @@ for ii=cases
 %     fill(fx, fy, [1,1,1]*0.9)
 %     alpha(0.5)
 %     plot(tPlot(1:idx),CEMavg(1:idx), color{ii}, 'LineWidth', 2)
-    plot(tPlot,CEMavg, color{ii}, 'LineWidth', 2)
-    stairs(tPlot(1:idx),Sdes(1,1:idx),'k')
-    ylim([0, 2*max(Sdes(1,:))])
-    set(gca,'FontSize',12)
+    hC{ii} = plot(tPlot(1:idx),CEMavg(1:idx), '-o', 'color', color{ii}, 'LineWidth', 2);
+    stairs(tPlot(1:idx),Sdes(1,1:idx),'k', 'LineWidth', 2)
+    ylim([0, 2])
+    set(gca,'FontSize',fontSz)
 
     
     
@@ -89,7 +104,7 @@ for ii=cases
 %     fy = [Tmin(1:idx), fliplr(Tmax(1:idx))];
 %     fill(fx, fy, [1,1,1]*0.9)
 %     alpha(0.5)
-    plot(tPlot(1:idx),Tavg(1:idx), color{ii}, 'LineWidth', 2)
+    hT{ii} = plot(tPlot(1:idx),Tavg(1:idx), '-o', 'color', color{ii}, 'LineWidth', 2);
 %     plot(tPlot,Tavg, color{ii}, 'LineWidth', 2)
     plot([tPlot(1), tPlot(idx)], [x_max(1), x_max(1)]+Tss, 'k--')
     plot([tPlot(1), tPlot(idx)], [x_min(1), x_min(1)]+Tss, 'k--')
@@ -97,7 +112,7 @@ for ii=cases
     xlabel('Time/s')
     ylabel('Average T/ ^{\circ}C')
     set(gcf,'color','w');
-    set(gca,'FontSize',12)
+    set(gca,'FontSize',fontSz)
 
     
     subplot(2,1,2)
@@ -106,15 +121,15 @@ for ii=cases
 %     fy = [Imin(1:idx), fliplr(Imax(1:idx))];
 %     fill(fx, fy, [1,1,1]*0.9)
 %     alpha(0.5)
-    plot(tPlot(1:idx),Iavg(1:idx), color{ii}, 'LineWidth', 2)
+    plot(tPlot(1:idx),Iavg(1:idx), '-o', 'color', color{ii}, 'LineWidth', 2)
 %     plot(tPlot, Iavg, color{ii}, 'LineWidth', 2)
     plot([tPlot(1), tPlot(idx)], 10*([x_max(2), x_max(2)]+Iss), 'k--')
     plot([tPlot(1), tPlot(idx)], 10*([x_min(2), x_min(2)]+Iss), 'k--')
     ylim(10*[x_min(2)+Iss-2, x_max(2)+Iss+2])
     xlabel('Time/s')
-    ylabel('Average T/ ^{\circ}C')
+    ylabel('Average I/ a.u.')
     set(gcf,'color','w');
-    set(gca,'FontSize',12)
+    set(gca,'FontSize',fontSz)
 
     
     
@@ -126,14 +141,14 @@ for ii=cases
 %     fy = [qmin(1:idx), fliplr(qmax(1:idx))];
 %     fill(fx, fy, [1,1,1]*0.9)
 %     alpha(0.5)
-    plot(tPlot(1:idx),qavg(1:idx), color{ii}, 'LineWidth', 2)
+    hQ{ii} = plot(tPlot(1:idx),qavg(1:idx), '-o', 'color', color{ii}, 'LineWidth', 2);
 %     plot(tPlot, qavg, color{ii}, 'LineWidth', 2)
     plot([tPlot(1), tPlot(idx)], [10, 10], 'k--')
     plot([tPlot(1), tPlot(idx)], [0.5, 0.5], 'k--')
     xlabel('Time/s')
     ylabel('Average q/ slm')
     set(gcf,'color','w');
-    set(gca,'FontSize',12)
+    set(gca,'FontSize',fontSz)
 
     
     subplot(2,1,2)
@@ -142,81 +157,93 @@ for ii=cases
 %     fy = [Pmin(1:idx), fliplr(Pmax(1:idx))];
 %     fill(fx, fy, [1,1,1]*0.9)
 %     alpha(0.5)
-    plot(tPlot(1:idx),Pavg(1:idx), color{ii}, 'LineWidth', 2)
+    plot(tPlot(1:idx),Pavg(1:idx), '-o', 'color', color{ii}, 'LineWidth', 2)
 %     plot(tPlot,Pavg, color{ii}, 'LineWidth', 2)
     plot([tPlot(1), tPlot(idx)], [5, 5], 'k--')
     plot([tPlot(1), tPlot(idx)], [1,1], 'k--')
     xlabel('Time/s')
     ylabel('Average Appled Power/ W')
     set(gcf,'color','w');
-    set(gca,'FontSize',12)
+    set(gca,'FontSize',fontSz)
 
 end
 
+legend([hC{1}, hC{2}], 'Approximate EMPC with Projection', 'Approximate EMPC', 'Location', 'southeast')
+legend([hT{1}, hT{2}], 'Approximate EMPC with Projection', 'Approximate EMPC', 'Location', 'southeast')
+legend([hQ{1}, hQ{2}], 'Approximate EMPC with Projection', 'Approximate EMPC', 'Location', 'southeast')
 
 
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% PLOT MSE SCORES
+% PLOT MSE SCORES AND MEMORY FOOTPRINT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-load('../Supporting-Data-Files/MSE_Ns_2500.mat')
+load('../Supporting-Data-Files/MSE_Ns_5000.mat')
 % Rows: Layers; Columns: Nodes
 
 NlayersUnique = unique(Nlayers_list);
+Nl = length(NlayersUnique);
 count=1;
-idx = cell(3,1);
-mse_avg = zeros(3, length(Nnodes_list));
+idx = cell(Nl,1);
+mse_avg = zeros(Nl, length(Nnodes_list));
 mse_sd = mse_avg;
+memory_avg = mse_avg;
+memory_sd = mse_avg;
+
 for j = NlayersUnique
 	idx{count}= find(Nlayers_list==j);
 	mse_avg(count,:) = mean(mse_list(idx{count}, :), 1);
     mse_sd(count,:) = std(mse_list(idx{count}, :), 0, 1);
+    
+    memory_avg(count,:) = mean(Memory_dnn_kb(idx{count}, :), 1);
+    memory_sd(count,:) = std(Memory_dnn_kb(idx{count}, :), 0, 1);
+    
     count = count+1;
 end
 
-mse_min = mse_avg - 3*mse_sd;
-mse_max = mse_avg + 3*mse_sd;
+mse_min = mse_avg - 2*mse_sd;
+mse_max = mse_avg + 2*mse_sd;
+
+memory_min = memory_avg - 2*memory_sd;
+memory_max = memory_avg + 2*memory_sd;
 
 legendVec = [];
-h = cell(length(NlayersUnique), 1);
-color = ['r';'b';'c'];
+h = cell(Nl, 1);
+color = ['r';'b';'m';'k'];
 
 figure(7)
 hold on
-for j = 1:length(NlayersUnique)
+%{
+for j = 1:Nl
     fx = [Nnodes_list, fliplr(Nnodes_list)];
     fy = [mse_min, fliplr(mse_max)];
     alpha(0.5)
     fill(fx, fy, [1,1,1]*0.9, 'LineStyle', ':')
 
 end
-
-for j = 1:length(NlayersUnique)
-    h{j} = plot(Nnodes_list, mse_avg(j,:), color(j,:), 'LineWidth', 2);
-end
-legend([h{1}, h{2}, h{3}], '1 Layer', '2 Layers', '3 Layers')
-xlabel('Nodes')
-ylabel('MSE')
-set(gca,'FontSize',12)
-
-
-
-figure(8)
+%}
+subplot(2,1,1)
 hold on
-for j = 1:length(NlayersUnique)
-    plot(Nnodes_list, mse_max(j,:), [color(j,:),':'], 'LineWidth', 1);
-    plot(Nnodes_list, mse_min(j,:), [color(j,:),':'], 'LineWidth', 1);
-
+for j = 1:Nl
+    hold on
+    h{j} = semilogy(Nnodes_list, mse_avg(j,:), '-o', 'color', color(j,:), 'Linewidth', 2);
 end
-
-for j = 1:length(NlayersUnique)
-    h{j} = plot(Nnodes_list, mse_avg(j,:), color(j,:), 'LineWidth', 2);
-end
-legend([h{1}, h{2}, h{3}], '1 Layer', '2 Layers', '3 Layers')
+legend([h{1}, h{2}, h{3}, h{4}], '1 Layer', '3 Layers', '5 Layers', '7 Layers')
 xlabel('Nodes')
 ylabel('MSE')
-set(gca,'FontSize',12)
+set(gca,'FontSize',fontSz)
 
+
+
+figure(7)
+subplot(2,1,2)
+hold on
+for j = 1:Nl
+    h{j} = plot(Nnodes_list, memory_avg(j,:),  '-o', 'color', color(j,:), 'Linewidth', 2);
+end
+legend([h{1}, h{2}, h{3}, h{4}], '1 Layer', '3 Layers', '5 Layers', '7 Layers', 'Location', 'northwest')
+xlabel('Nodes')
+ylabel('Memory/kb')
+set(gca,'FontSize',fontSz)
 
 
 %%
@@ -229,12 +256,65 @@ Tapprox = [0.013;0.014;0.013;0.014;0.014;0.014;0.013];
 Tfull = [0.024;0.024;0.027;0.039;0.055;0.082;0.093];
 
 
-figure(8)
+figure(9)
 hold on
-plot(Nhorizon, Tapprox, 'Linewidth', 2)
-plot(Nhorizon, Tfull, 'Linewidth', 2)
-legend('Approximate NMPC', 'Full NMPC', 'Location', 'northwest')
+plot(Nhorizon, Tapprox*1000, '-o', 'Linewidth', 2)
+plot(Nhorizon, Tfull*1000, '-o', 'Linewidth', 2)
+legend('Approximate EMPC', 'EMPC', 'Location', 'northwest')
 xlabel('Prediction Horizon')
-ylabel('Average computation time/ s')
-set(gca,'FontSize',15)
+ylabel('Average computation time/ ms')
+set(gca,'FontSize',fontSz)
+
+
+%% Change figures
+figure(4)
+title('(a)')
+xlim([0, 27])
+ylim([0, 1.6])
+set(gca,'FontSize',fontSz)
+box on
+
+figure(5)
+subplot(2,1,1)
+title('(b)')
+set(gca,'FontSize',fontSz)
+xlim([0, 27])
+ylim([32.5, 43])
+box on
+subplot(2,1,2)
+xlim([0, 27])
+box on
+
+figure(6)
+subplot(2,1,1)
+title('(c)')
+set(gca,'FontSize',fontSz)
+xlim([0, 27])
+box on
+subplot(2,1,2)
+xlim([0, 27])
+subplot(2,1,2)
+xlim([0, 27])
+box on
+
+figure(7)
+xlim([2,12])
+subplot(2,1,1)
+title('(a)')
+set(gca,'FontSize',fontSz)
+box on
+subplot(2,1,2)
+title('(b)')
+set(gca,'FontSize',fontSz)
+box on
+% figure(8)
+% xlim([2,12])
+% title('(b)')
+% set(gca,'FontSize',fontSz)
+box on
+figure(9)
+box on
+
+
+
 

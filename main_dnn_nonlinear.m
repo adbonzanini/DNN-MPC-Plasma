@@ -226,8 +226,8 @@ t = (target - repmat(tscale_min,[size(data,1),1]))./(repmat(tscale_max-tscale_mi
 t = t';
 
 % List of nodes and layers
-Nlayers_list = 5; %repmat([1, 3, 5], 1, 5);%3:1:10; 
-Nnodes_list = 20; %5:1:15;
+Nlayers_list = 5; %repmat([1, 3, 5, 7], 1, 5); %5 %3:1:10; 
+Nnodes_list = 6; %2:2:16; %6
 mse_tol = 1e-5;
 
 % Fit deep neural network for each hyperparameter
@@ -264,7 +264,11 @@ save('Supporting-Data-Files/DNN_training.mat','net','xscale_min','xscale_max', '
     'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K', 'mse_list', ...
     'x_init', 'u_init', 'CEM_init', 'CEM_min', 'CEM_max', 'CEMsp', 'N', 'data_rand', 'target_rand')
 
-save(['Supporting-Data-Files/MSE_Ns_', num2str(Nsamp), '.mat'], 'Nlayers_list', 'Nnodes_list', 'mse_list')
+if length(Nlayers_list)>1
+    fprintf('\n')
+    warning('MSE File Overwritten!')
+    save(['Supporting-Data-Files/MSE_Ns_', num2str(Nsamp), '.mat'], 'Nlayers_list', 'Nnodes_list', 'mse_list', 'Memory_dnn_kb')
+end
 
 
 
