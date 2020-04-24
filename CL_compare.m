@@ -11,6 +11,38 @@ clear all
 
 %% Load relevant inputs for DNN training
 load('Supporting-Data-Files/DNN_training.mat');
+DNNstruct = load('Supporting-Data-Files/DNN_training.mat');
+
+dnnmpcFn = casadiDNN(DNNstruct, 6, 5).dnnmpc;
+
+%{
+format long
+L = 5;
+% extract weights and biases from neural network
+W = cell(L+1,1);
+b = cell(L+1,1);
+W{1} = net.IW{1};
+b{1} = net.b{1};
+for i = 1:L
+    W{i+1} = net.LW{i+1,i};
+    b{i+1} = net.b{i+1};
+end
+% create casadi evaluation of neural network
+import casadi.*
+x = MX.sym('x', nx+ny);
+xs = (x - xscale_min')./(xscale_max-xscale_min)';
+z = max(W{1}*xs+b{1},0);
+for k = 1:L-1
+   z = max(W{k+1}*z+b{k+1},0);
+end
+us = W{L+1}*z+b{L+1};
+u = (tscale_min+(tscale_max-tscale_min).*us');
+dnnmpcFn = Function('dnnmpc', {x}, {u});
+%}
+
+
+
+
 model_ID=load('Supporting-Data-Files/MIMOmodelGlass.mat');
 Tss = model_ID.steadyStates(1);
 Iss = round(model_ID.steadyStates(2),1);
@@ -19,7 +51,7 @@ Qss = round(model_ID.steadyStates(4),1);
 
 %% User-defined inputs
 
-for scenario = [1,2, 3]
+for scenario = [1, 2, 3]
 rng(300)
 wIdx = 1.25;
 
@@ -42,8 +74,9 @@ elseif scenario==4
     color='k';
 end
 
+
 % Number of simulations/time-steps
-Nsim = 50;
+Nsim = 200;
 
 % Sampling time
 Tsampling=1.3;
@@ -126,22 +159,36 @@ Uplot = Usim;
 % reset random seed
 rng(200, 'twister')
 
+
 % run loop over time
 for k = 1:Nsim
     tStart = tic;
     if approximate == 1
         % evaluate the explicit controller
-    %     xscaled = ([Xsim(:,k);Sdes(:,k)-Hd*What(:,k)] - xscale_min')./(xscale_max-xscale_min)';
         xscaled = ([Xsim(:,k);CEMcurr(k)] - xscale_min')./(xscale_max-xscale_min)';
 
+        
+        
+        %{
+        % With MATLAB
         tscaled = net(xscaled)';
         uexp = (tscale_min+(tscale_max-tscale_min).*tscaled)';
+
+        %}
+        
+        %%{
+        % With CasADi
+        uexp = full(dnnmpcFn([Xsim(:,k);CEMcurr(k)]));
+        %}
+        
+        
+
 
         % specify to use the projection or just the DNN
         if useProj == 1
             assign(xcurrent, Xsim(:,k));
             assign(uexplicit, uexp);
-            value(Optimizer)
+%             value(Optimizer);
             Usim(:,k) = value(Optimizer);        
         else
             Usim(:,k) = uexp;
@@ -167,6 +214,8 @@ for k = 1:Nsim
         [U_mpc, Feas, V_opt] = solveSampleNMPC(solver, args, data_rand);
         Usim(:,k) = U_mpc;
     end
+    Trun(k) = toc(tStart);
+
     % this calls the original offset-free mpc
 %     [sol,errorcode] = controller{[Xsim(:,k);Sdes(:,k)-Hd*What(:,k)]};
 %     Usim(:,k) = double(sol(1:nu));
@@ -190,7 +239,7 @@ for k = 1:Nsim
 
     % estimate disturbance
     What(:,k+1) = lambdaf*What(:,k) + (1-lambdaf)*Wsim(:,k);
-    Trun(k) = toc(tStart);
+%     Trun(k) = toc(tStart);
 end
 
 %% Plot results
@@ -295,9 +344,9 @@ set(gca,'FontSize',15)
 %}
 
 if approximate==1
-    disp('Approximate EMPC ')
+    disp('DNN-based NMPC ')
 else
-    disp('Full EMPC')
+    disp('Full NMPC')
 end
 disp(['Average Run Time = ', num2str(mean(Trun)), ' seconds'])
 
@@ -314,6 +363,7 @@ figure(4)
 legend([hT{1}, hT{2}, hT{3}], 'EMPC', 'Approximate EMPC', 'Approximate EMPC with Projection')
 set(gca,'FontSize',15)
 %}
+
 figure(3)
 subplot(2,1,1)
 xlim([0, 10.5])
@@ -322,7 +372,7 @@ subplot(2,1,2)
 xlim([0, 10.5])
 ylim([32, 43])
 % legend([hCEM{1}, hCEM{2}, hCEM{3}], 'NMPC', 'Approximate NMPC', 'Approximate NMPC with Projection')
-legend([hT{1}, hT{2}, hT{3}], 'EMPC', 'Approximate EMPC', 'Approximate EMPC with Projection')
+legend([hT{1}, hT{2}, hT{3}], 'NMPC', 'DNN-based NMPC', 'PNN-based NMPC')
 box on
 set(gca,'FontSize',15)
 
@@ -342,5 +392,7 @@ subplot(2,1,2)
 xlim([0, 11])
 
 %}
+
+
 
 

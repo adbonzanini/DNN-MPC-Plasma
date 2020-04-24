@@ -168,9 +168,9 @@ for ii=cases
 
 end
 
-legend([hC{1}, hC{2}], 'Approximate EMPC with Projection', 'Approximate EMPC', 'Location', 'southeast')
-legend([hT{1}, hT{2}], 'Approximate EMPC with Projection', 'Approximate EMPC', 'Location', 'southeast')
-legend([hQ{1}, hQ{2}], 'Approximate EMPC with Projection', 'Approximate EMPC', 'Location', 'southeast')
+legend([hC{1}, hC{2}], 'PNN-based NMPC', 'DNN-based NMPC', 'Location', 'southeast')
+legend([hT{1}, hT{2}], 'PNN-based NMPC', 'DNN-based NMPC', 'Location', 'southeast')
+legend([hQ{1}, hQ{2}], 'PNN-based NMPC', 'DNN-based NMPC', 'Location', 'southeast')
 
 
 %%
@@ -251,19 +251,47 @@ set(gca,'FontSize',fontSz)
 % PLOT AVERAGE COMPUTATION TIMES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%{
 Nhorizon = [5;10;20;40;60;80;100];
 Tapprox = [0.013;0.014;0.013;0.014;0.014;0.014;0.013];
 Tfull = [0.024;0.024;0.027;0.039;0.055;0.082;0.093];
-
-
+TapproxProj = round([0.021356;0.021907;0.022512;0.021304;0.020411;0.022059;0.021807], 3);
 figure(9)
 hold on
-plot(Nhorizon, Tapprox*1000, '-o', 'Linewidth', 2)
-plot(Nhorizon, Tfull*1000, '-o', 'Linewidth', 2)
-legend('Approximate EMPC', 'EMPC', 'Location', 'northwest')
+plot(Nhorizon, Tfull*1000, '-o', 'color', 'r', 'Linewidth', 2)
+plot(Nhorizon, Tapprox*1000, '-o', 'color', [0 0.4470 0.7410], 'Linewidth', 2)
+plot(Nhorizon, TapproxProj*1000, '-o', 'color',[0.4940 0.1840 0.5560], 'Linewidth', 2)
+legend('NMPC', 'DNN-based NMPC', 'PNN-based NMPC', 'Location', 'northwest')
 xlabel('Prediction Horizon')
 ylabel('Average computation time/ ms')
 set(gca,'FontSize',fontSz)
+%}
+
+%%
+Nplot = [5, 10, 20, 40 ,60, 80, 100];
+tNMPC = [0.05, 0.057, 0.067, 0.087, 0.114, 0.145, 0.176];
+tDNN = [52, 34, 42, 34, 33, 35, 49]*10^(-5);
+tPNN = [24, 20, 24, 20, 20, 20, 21]*10^(-4);
+colorvec = [0 0.4470 0.7410; 0.4940 0.1840 0.5560];
+
+hf1 = figure(9);
+hold on
+plot(Nplot, tNMPC*1000,'r-o', 'Linewidth', 2)
+plot(Nplot, tDNN*1000, '-o', 'color', colorvec(1,:), 'Linewidth', 2)
+plot(Nplot, tPNN*1000, '-o', 'color', colorvec(2,:), 'Linewidth', 2)
+xlabel('Prediction Horizon')
+ylabel('Average computation time/ ms')
+legend('Full NMPC', 'DNN-based NMPC', 'PNN-based NMPC', 'Location', 'northwest')
+box on
+set(gca,'FontSize',15)
+axes('parent',hf1,'position',[0.35 0.2 0.5 0.2]);
+hold on
+plot(Nplot, tDNN*1000, '-o', 'color', colorvec(1,:), 'Linewidth', 2)
+plot(Nplot, tPNN*1000, '-o', 'color', colorvec(2,:), 'Linewidth', 2)
+box on
+set(gca,'FontSize',fontSz), 
+
+
 
 
 %% Change figures

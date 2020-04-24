@@ -2,6 +2,7 @@
 % Clear variables
 yalmip('clear')
 clear
+format short
 
 % Start uqlab
 uqlab
@@ -40,7 +41,7 @@ nu = size(B,2);
 ny = 1;
 
 % Horizon length
-N = 10;
+N = 10;  %% <--- change this for different prediction horizons
 
 % Infinite horizon LQR
 [K,Pinf,Eig] = dlqr(A,B,Q,R);
@@ -241,7 +242,7 @@ for i = 1:length(Nlayers_list)
         index = index + 1;
         net = feedforwardnet(Nnodes_list(j)*ones(1,Nlayers_list(i)), 'trainlm');
         for l = 1:Nlayers_list(i)
-            net.layers{1}.transferFcn = 'poslin';
+            net.layers{l}.transferFcn = 'poslin';
         end
         [net,tr] = train(net, x, t);
         net_list{i,j} = net;
@@ -255,6 +256,8 @@ for i = 1:length(Nlayers_list)
         Mdnn = (ninput+1)*M + (L-1)*(M+1)*M + (M+1)*noutput;
         Memory_dnn_kb(i,j) = Mdnn*8/1e3;   
         fprintf('Done!')
+        
+    
     end
 end
 
@@ -262,7 +265,7 @@ end
 % Save variables used later so that we can run the DNN-controller in a separate file
 save('Supporting-Data-Files/DNN_training.mat','net','xscale_min','xscale_max', 'tscale_min', 'tscale_max', ...
     'x_min', 'x_max', 'u_min', 'u_max', 'A', 'B', 'C', 'nx', 'nu', 'ny', 'X', 'U', 'Q', 'R', 'PN', 'K', 'mse_list', ...
-    'x_init', 'u_init', 'CEM_init', 'CEM_min', 'CEM_max', 'CEMsp', 'N', 'data_rand', 'target_rand')
+    'x_init', 'u_init', 'CEM_init', 'CEM_min', 'CEM_max', 'CEMsp', 'N', 'data_rand', 'target_rand', 'L')
 
 if length(Nlayers_list)>1
     fprintf('\n')
